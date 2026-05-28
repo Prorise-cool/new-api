@@ -24,6 +24,7 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useSetTheme, useTheme, useActualTheme } from '../../context/Theme';
 import { getLogo, getSystemName, API, showSuccess } from '../../helpers';
+import { parseCustomNavItems } from '../../helpers/customNavItems';
 import { normalizeLanguage } from '../../i18n/language';
 import { useIsMobile } from './useIsMobile';
 import { useSidebarCollapsed } from './useSidebarCollapsed';
@@ -87,6 +88,13 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     }
     return false; // 默认不需要登录
   }, [headerNavModules]);
+
+  // 自定义顶部导航项 (JSON 数组字符串)
+  const customNavItemsRaw = statusState?.status?.CustomNavItems;
+  const customNavItems = useMemo(
+    () => parseCustomNavItems(customNavItemsRaw),
+    [customNavItemsRaw],
+  );
 
   const isConsoleRoute = location.pathname.startsWith('/console');
 
@@ -238,6 +246,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     drawerOpen,
     headerNavModules,
     pricingRequireAuth,
+    customNavItems,
 
     // Actions
     logout,

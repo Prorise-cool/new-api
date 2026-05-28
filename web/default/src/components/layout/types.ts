@@ -91,6 +91,10 @@ export type TopNavLink = {
   disabled?: boolean
   requiresAuth?: boolean
   external?: boolean
+  /** Stable key for built-in items, used as anchor target for custom items. */
+  key?: string
+  /** Lucide icon name (PascalCase). Currently only rendered for custom items. */
+  icon?: string
 }
 
 /**

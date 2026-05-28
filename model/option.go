@@ -67,6 +67,9 @@ func InitOptionMap() {
 	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
+	// JSON-encoded list of admin-defined custom items appended to the top nav bar.
+	// See setting/custom_nav/validation.go for the schema.
+	common.OptionMap["CustomNavItems"] = "[]"
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo

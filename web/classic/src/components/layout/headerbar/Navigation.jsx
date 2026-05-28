@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Link } from 'react-router-dom';
 import SkeletonWrapper from '../components/SkeletonWrapper';
+import { getLucideIconByName } from '../../../helpers/render';
 
 const Navigation = ({
   mainNavLinks,
@@ -37,7 +38,14 @@ const Navigation = ({
     const commonLinkClasses = `${baseClasses} ${spacingClasses} ${hoverClasses}`;
 
     return mainNavLinks.map((link) => {
-      const linkContent = <span>{link.text}</span>;
+      // Custom items carry an optional lucide icon name; built-in slots don't.
+      const iconNode = link.icon ? getLucideIconByName(link.icon, 14) : null;
+      const linkContent = (
+        <>
+          {iconNode}
+          <span>{link.text}</span>
+        </>
+      );
 
       if (link.isExternal) {
         return (

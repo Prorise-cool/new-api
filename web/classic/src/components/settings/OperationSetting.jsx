@@ -22,6 +22,7 @@ import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
 import SettingsHeaderNavModules from '../../pages/Setting/Operation/SettingsHeaderNavModules';
 import SettingsSidebarModulesAdmin from '../../pages/Setting/Operation/SettingsSidebarModulesAdmin';
+import SettingsCustomNavItems from '../../pages/Setting/Operation/SettingsCustomNavItems';
 import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensitiveWords';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
@@ -129,6 +130,10 @@ const OperationSetting = () => {
         {/* 顶栏模块管理 */}
         <div style={{ marginTop: '10px' }}>
           <SettingsHeaderNavModules options={inputs} refresh={onRefresh} />
+        </div>
+        {/* 自定义顶部导航项 */}
+        <div style={{ marginTop: '10px' }}>
+          <SettingsCustomNavItems options={inputs} refresh={onRefresh} />
         </div>
         {/* 左侧边栏模块管理（管理员） */}
         <div style={{ marginTop: '10px' }}>

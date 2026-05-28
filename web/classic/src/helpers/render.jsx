@@ -80,7 +80,9 @@ import {
   Package,
   Server,
   CalendarClock,
+  ExternalLink,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import {
   SiAtlassian,
   SiAuth0,
@@ -155,6 +157,28 @@ export function getLucideIcon(key, selected = false) {
     default:
       return <CircleUser {...commonProps} color={iconColor} />;
   }
+}
+
+/**
+ * Look up a lucide-react icon by its PascalCase export name and render it.
+ *
+ * Used by admin-configurable surfaces (custom navigation items, etc.) where
+ * the icon name comes from a database string rather than a static import.
+ * Falls back to <ExternalLink/> when the name is empty or unknown.
+ *
+ * @param {string|null|undefined} name
+ * @param {number} size icon size in px (default 16)
+ * @returns {JSX.Element}
+ */
+export function getLucideIconByName(name, size = 16) {
+  if (!name || typeof name !== 'string') {
+    return <ExternalLink size={size} strokeWidth={2} />;
+  }
+  const Icon = LucideIcons[name.trim()];
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) {
+    return <ExternalLink size={size} strokeWidth={2} />;
+  }
+  return <Icon size={size} strokeWidth={2} />;
 }
 
 // 获取模型分类

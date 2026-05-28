@@ -20,6 +20,7 @@ import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LucideIconByName } from '@/lib/lucide-icon'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
         isActive: false,
         disabled: false,
         external: false,
+        icon: undefined as string | undefined,
         ...link,
       })),
     [links]
@@ -62,7 +64,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent side='bottom' align='start'>
             {normalizedLinks.map(
-              ({ title, href, isActive, disabled, external }) => (
+              ({ title, href, isActive, disabled, external, icon }) => (
                 <DropdownMenuItem
                   key={`${title}-${href}`}
                   render={
@@ -71,16 +73,28 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                         href={href}
                         target='_blank'
                         rel='noopener noreferrer'
-                        className={!isActive ? 'text-muted-foreground' : ''}
+                        className={cn(
+                          'inline-flex items-center gap-2',
+                          !isActive && 'text-muted-foreground'
+                        )}
                       >
+                        {icon ? (
+                          <LucideIconByName name={icon} className='h-4 w-4' />
+                        ) : null}
                         {title}
                       </a>
                     ) : (
                       <Link
                         to={href}
-                        className={!isActive ? 'text-muted-foreground' : ''}
+                        className={cn(
+                          'inline-flex items-center gap-2',
+                          !isActive && 'text-muted-foreground'
+                        )}
                         disabled={disabled}
                       >
+                        {icon ? (
+                          <LucideIconByName name={icon} className='h-4 w-4' />
+                        ) : null}
                         {title}
                       </Link>
                     )
@@ -100,27 +114,38 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
         )}
         {...props}
       >
-        {normalizedLinks.map(({ title, href, isActive, disabled, external }) =>
-          external ? (
-            <a
-              key={`${title}-${href}`}
-              href={href}
-              target='_blank'
-              rel='noopener noreferrer'
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
-            >
-              {title}
-            </a>
-          ) : (
-            <Link
-              key={`${title}-${href}`}
-              to={href}
-              disabled={disabled}
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
-            >
-              {title}
-            </Link>
-          )
+        {normalizedLinks.map(
+          ({ title, href, isActive, disabled, external, icon }) => {
+            const className = cn(
+              'inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary',
+              !isActive && 'text-muted-foreground'
+            )
+            const iconNode = icon ? (
+              <LucideIconByName name={icon} className='h-4 w-4' />
+            ) : null
+            return external ? (
+              <a
+                key={`${title}-${href}`}
+                href={href}
+                target='_blank'
+                rel='noopener noreferrer'
+                className={className}
+              >
+                {iconNode}
+                {title}
+              </a>
+            ) : (
+              <Link
+                key={`${title}-${href}`}
+                to={href}
+                disabled={disabled}
+                className={className}
+              >
+                {iconNode}
+                {title}
+              </Link>
+            )
+          }
         )}
       </nav>
     </>

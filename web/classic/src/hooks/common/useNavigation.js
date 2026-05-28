@@ -18,8 +18,29 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useMemo } from 'react';
+import { mergeNavLinks } from '../../helpers/customNavItems';
 
-export const useNavigation = (t, docsLink, headerNavModules) => {
+/**
+ * Build the classic top-nav link list.
+ *
+ * The first three params drive the built-in slots (home / console / pricing /
+ * docs / about). The trailing two thread admin-defined custom items into the
+ * sequence using the shared {@link mergeNavLinks} weaver, so an item can be
+ * placed before/after any built-in slot or at the very start/end.
+ *
+ * @param {Function} t                  i18n translator
+ * @param {string}   docsLink           configured external docs URL (or empty)
+ * @param {object}   headerNavModules   parsed HeaderNavModules config
+ * @param {Array}    customNavItems     parsed CustomNavItems list
+ * @param {boolean}  isAuthed           whether a user is currently signed in
+ */
+export const useNavigation = (
+  t,
+  docsLink,
+  headerNavModules,
+  customNavItems = [],
+  isAuthed = false,
+) => {
   const mainNavLinks = useMemo(() => {
     // 默认配置，如果没有传入配置则显示所有模块
     const defaultModules = {
@@ -67,7 +88,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
     ];
 
     // 根据配置过滤导航链接
-    return allLinks.filter((link) => {
+    const builtin = allLinks.filter((link) => {
       if (link.itemKey === 'docs') {
         return docsLink && modules.docs;
       }
@@ -79,7 +100,14 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       }
       return modules[link.itemKey] === true;
     });
-  }, [t, docsLink, headerNavModules]);
+
+    // Weave in admin-defined custom items, respecting enable/auth gates.
+    const visibleCustom = (customNavItems || []).filter(
+      (item) => item.enabled && (!item.requireAuth || isAuthed),
+    );
+    if (visibleCustom.length === 0) return builtin;
+    return mergeNavLinks(builtin, visibleCustom);
+  }, [t, docsLink, headerNavModules, customNavItems, isAuthed]);
 
   return {
     mainNavLinks,

@@ -27,6 +27,7 @@ const STATUS_RELATED_KEYS = [
   'theme.frontend',
   'HeaderNavModules',
   'SidebarModulesAdmin',
+  'CustomNavItems',
   'Notice',
   'LogConsumeEnabled',
   'QuotaPerUnit',

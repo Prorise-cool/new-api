@@ -23,6 +23,7 @@ import {
   serializeHeaderNavModules,
   serializeSidebarModulesAdmin,
 } from '../maintenance/config'
+import { CustomNavItemsSection } from '../maintenance/custom-nav-items-section'
 import { HeaderNavigationSection } from '../maintenance/header-navigation-section'
 import { NoticeSection } from '../maintenance/notice-section'
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
@@ -89,6 +90,13 @@ const SITE_SECTIONS = [
         />
       )
     },
+  },
+  {
+    id: 'custom-nav-items',
+    titleKey: 'Custom navigation items',
+    build: (settings: SiteSettings) => (
+      <CustomNavItemsSection data={settings.CustomNavItems ?? ''} />
+    ),
   },
 ] as const
 

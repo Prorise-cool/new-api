@@ -69,6 +69,8 @@ export type SiteSettings = {
   'legal.privacy_policy': string
   HeaderNavModules: string
   SidebarModulesAdmin: string
+  // JSON-encoded list of admin-defined custom top nav items (CustomNavItem[]).
+  CustomNavItems: string
 }
 
 export type AuthSettings = {
