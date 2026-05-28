@@ -27,7 +27,12 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
-import { selectFilter } from '../../../../helpers';
+import {
+  API,
+  selectFilter,
+  showError,
+  getModelCategories,
+} from '../../../../helpers';
 
 const APP_CONFIGS = {
   claude: {
@@ -84,12 +89,14 @@ export default function CCSwitchModal({
   visible,
   onClose,
   tokenKey,
-  modelOptions,
+  tokenId,
 }) {
   const { t } = useTranslation();
   const [app, setApp] = useState('claude');
   const [name, setName] = useState(APP_CONFIGS.claude.defaultName);
   const [models, setModels] = useState({});
+  const [modelOptions, setModelOptions] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
   const currentConfig = APP_CONFIGS[app];
 
@@ -100,6 +107,58 @@ export default function CCSwitchModal({
       setName(APP_CONFIGS.claude.defaultName);
     }
   }, [visible]);
+
+  // Load token-scoped models when dialog opens. Falls back to the user-wide
+  // model list if no tokenId is provided (legacy callers).
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    const url = tokenId
+      ? `/api/user/models/by_token/${tokenId}`
+      : '/api/user/models';
+    setModelsLoading(true);
+    API.get(url)
+      .then((res) => {
+        if (cancelled) return;
+        const { success, message, data } = res.data || {};
+        if (!success) {
+          showError(t(message || 'Failed to load models'));
+          setModelOptions([]);
+          return;
+        }
+        const categories = getModelCategories(t);
+        const options = (data || []).map((model) => {
+          let icon = null;
+          for (const [key, category] of Object.entries(categories)) {
+            if (key !== 'all' && category.filter({ model_name: model })) {
+              icon = category.icon;
+              break;
+            }
+          }
+          return {
+            label: (
+              <span className='flex items-center gap-1'>
+                {icon}
+                {model}
+              </span>
+            ),
+            value: model,
+          };
+        });
+        setModelOptions(options);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        showError(e?.message || 'Failed to load models');
+        setModelOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, tokenId, t]);
 
   const handleAppChange = (val) => {
     setApp(val);
@@ -176,7 +235,7 @@ export default function CCSwitchModal({
               )}
             </div>
             <Select
-              placeholder={t('请选择模型')}
+              placeholder={modelsLoading ? t('加载中...') : t('请选择模型')}
               optionList={modelOptions}
               value={models[field.key] || undefined}
               onChange={(val) => handleModelChange(field.key, val)}
@@ -184,6 +243,7 @@ export default function CCSwitchModal({
               style={{ width: '100%' }}
               showClear
               searchable
+              loading={modelsLoading}
               emptyContent={t('暂无数据')}
             />
           </div>

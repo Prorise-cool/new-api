@@ -563,6 +563,78 @@ func GetUserModels(c *gin.Context) {
 	return
 }
 
+// GetUserModelsByToken returns models scoped to a specific token's group/limits.
+//
+// Selection rules (mirrors getModelListGroups in controller/model.go):
+//   - token.Group == ""     -> union of all groups the user can access (legacy behavior)
+//   - token.Group == "auto" -> union of user's auto-group set
+//   - token.Group == X      -> only models enabled in group X
+//
+// When ModelLimits is enabled on the token, the result is further intersected with the whitelist.
+func GetUserModelsByToken(c *gin.Context) {
+	userId := c.GetInt("id")
+	tokenId, err := strconv.Atoi(c.Param("token_id"))
+	if err != nil || tokenId <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid token id",
+		})
+		return
+	}
+
+	token, err := model.GetTokenByIds(tokenId, userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	user, err := model.GetUserCache(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	var models []string
+	appendUnique := func(src []string) {
+		for _, m := range src {
+			if !common.StringsContains(models, m) {
+				models = append(models, m)
+			}
+		}
+	}
+
+	switch token.Group {
+	case "":
+		groups := service.GetUserUsableGroups(user.Group)
+		for group := range groups {
+			appendUnique(model.GetGroupEnabledModels(group))
+		}
+	case "auto":
+		for _, group := range service.GetUserAutoGroup(user.Group) {
+			appendUnique(model.GetGroupEnabledModels(group))
+		}
+	default:
+		models = model.GetGroupEnabledModels(token.Group)
+	}
+
+	if token.IsModelLimitsEnabled() {
+		allowed := token.GetModelLimitsMap()
+		filtered := make([]string, 0, len(models))
+		for _, m := range models {
+			if allowed[m] {
+				filtered = append(filtered, m)
+			}
+		}
+		models = filtered
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    models,
+	})
+}
+
 func UpdateUser(c *gin.Context) {
 	var updatedUser model.User
 	err := json.NewDecoder(c.Request.Body).Decode(&updatedUser)

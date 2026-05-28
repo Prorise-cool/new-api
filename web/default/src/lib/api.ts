@@ -195,6 +195,16 @@ export async function getUserModels(): Promise<{
   return res.data
 }
 
+// Get models available to a specific token (respects token.group + model_limits)
+export async function getUserModelsByToken(tokenId: number): Promise<{
+  success: boolean
+  message?: string
+  data?: string[]
+}> {
+  const res = await api.get(`/api/user/models/by_token/${tokenId}`)
+  return res.data
+}
+
 // Get user groups with descriptions and ratios
 export async function getUserGroups(): Promise<{
   success: boolean

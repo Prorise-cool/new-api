@@ -20,7 +20,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { getUserModels } from '@/lib/api'
+import { getUserModels, getUserModelsByToken } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ComboboxInput } from '@/components/ui/combobox-input'
 import { Label } from '@/components/ui/label'
@@ -91,6 +91,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   tokenKey: string
+  tokenId?: number
 }
 
 export function CCSwitchDialog(props: Props) {
@@ -99,9 +100,12 @@ export function CCSwitchDialog(props: Props) {
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
   const [models, setModels] = useState<Record<string, string>>({})
 
+  // Prefer token-scoped models (filtered by token.group + model_limits) when
+  // tokenId is known; fall back to the user-wide model list otherwise.
   const { data: modelsData } = useQuery({
-    queryKey: ['user-models-ccswitch'],
-    queryFn: getUserModels,
+    queryKey: ['user-models-ccswitch', props.tokenId ?? null],
+    queryFn: () =>
+      props.tokenId ? getUserModelsByToken(props.tokenId) : getUserModels(),
     enabled: props.open,
     staleTime: 5 * 60 * 1000,
   })

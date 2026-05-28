@@ -49,7 +49,7 @@ function TokensPage() {
   const openCCSwitchModalRef = useRef(null);
   const tokensData = useTokensData(
     (key) => openFluentNotificationRef.current?.(key),
-    (key) => openCCSwitchModalRef.current?.(key),
+    (key, id) => openCCSwitchModalRef.current?.(key, id),
   );
   const isMobile = useIsMobile();
   const latestRef = useRef({
@@ -66,6 +66,7 @@ function TokensPage() {
   const [prefillKey, setPrefillKey] = useState('');
   const [ccSwitchVisible, setCCSwitchVisible] = useState(false);
   const [ccSwitchKey, setCCSwitchKey] = useState('');
+  const [ccSwitchTokenId, setCCSwitchTokenId] = useState(null);
 
   // Keep latest data for handlers inside notifications
   useEffect(() => {
@@ -191,11 +192,11 @@ function TokensPage() {
   // assign after definition so hook callback can call it safely
   openFluentNotificationRef.current = openFluentNotification;
 
-  function openCCSwitchModal(key) {
-    if (modelOptions.length === 0) {
-      loadModels();
-    }
+  // Note: modelOptions (used by Fluent notification) is still loaded lazily there.
+  // CC Switch modal loads its own token-scoped model list internally.
+  function openCCSwitchModal(key, id) {
     setCCSwitchKey(key || '');
+    setCCSwitchTokenId(id ?? null);
     setCCSwitchVisible(true);
   }
   openCCSwitchModalRef.current = openCCSwitchModal;
@@ -388,7 +389,7 @@ function TokensPage() {
         visible={ccSwitchVisible}
         onClose={() => setCCSwitchVisible(false)}
         tokenKey={ccSwitchKey}
-        modelOptions={modelOptions}
+        tokenId={ccSwitchTokenId}
       />
 
       <CardPro
