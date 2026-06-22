@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getUserModels, getUserModelsByToken } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { ComboboxInput } from '@/components/ui/combobox-input'
+import { ComboboxFreeInput } from '@/components/ui/combobox-free-input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Dialog } from '@/components/dialog'
@@ -155,9 +155,7 @@ export function CCSwitchDialog(props: Props) {
       title={t('Import to CC Switch')}
       contentClassName='sm:max-w-md'
       contentHeight='auto'
-      bodyClassName={
-        currentConfig.modelFields.length === 1 ? 'space-y-4 pb-52' : 'space-y-4'
-      }
+      bodyClassName='space-y-4'
       footer={
         <>
           <Button variant='outline' onClick={() => props.onOpenChange(false)}>
@@ -193,7 +191,7 @@ export function CCSwitchDialog(props: Props) {
 
         <div className='space-y-2'>
           <Label>{t('Name')}</Label>
-          <ComboboxInput
+          <ComboboxFreeInput
             options={[]}
             value={name}
             onValueChange={setName}
@@ -211,7 +209,7 @@ export function CCSwitchDialog(props: Props) {
                 <span className='text-destructive ml-0.5'>*</span>
               )}
             </Label>
-            <ComboboxInput
+            <ComboboxFreeInput
               options={modelOptions}
               value={models[field.key] || ''}
               onValueChange={(v) =>
@@ -219,6 +217,7 @@ export function CCSwitchDialog(props: Props) {
               }
               placeholder={t('Select or enter model name')}
               emptyText={t('No models found')}
+              allowCustomValue={true}
             />
           </div>
         ))}
