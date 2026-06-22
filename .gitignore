@@ -36,3 +36,9 @@ data/
 token_estimator_test.go
 skills-lock.json
 .playwright-mcp
+
+# 部署备份与密钥(绝不入库)
+deploy/backups/
+*.sql.gz
+newapi-deploy
+newapi-deploy.pub
