@@ -1,0 +1,28 @@
+{
+  "image": "ghcr.io/prorise-cool/new-api",
+  "health_timeout_secs": 180,
+  "nodes": [
+    {
+      "name": "wdc",
+      "host": "209.50.227.90",
+      "port": 22,
+      "user": "root",
+      "role": "master",
+      "compose_dir": "/opt/newapi-prime",
+      "service": "new-api",
+      "container": "newapi-prime",
+      "health_url": "http://127.0.0.1:3100/api/status"
+    },
+    {
+      "name": "sfo",
+      "host": "23.106.46.111",
+      "port": 22,
+      "user": "root",
+      "role": "slave",
+      "compose_dir": "/opt/newapi-prime",
+      "service": "newapi",
+      "container": "newapi-prime",
+      "health_url": "http://127.0.0.1:3100/api/status"
+    }
+  ]
+}

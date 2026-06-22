@@ -1,0 +1,102 @@
+name: Deploy (prod)
+
+# push main -> 构建 ghcr 镜像并自动滚动部署到 deploy/nodes.json 里的全部 new-api 节点。
+# 手动 workflow_dispatch 填 image_tag -> 跳过构建,直接部署该 tag(= 一键回滚)。
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "已有 ghcr tag(只部署不构建=回滚);留空=构建新镜像"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # push 默认构建(commit message 含 [skip deploy] 则跳过);手动触发仅当未指定 image_tag 时构建
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.image_tag == '') || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip deploy]')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve tag & write VERSION
+        id: ver
+        run: |
+          TAG="prod-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)"
+          echo "$TAG" > VERSION
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building $TAG"
+
+      - name: Normalize GHCR repository
+        run: echo "GHCR_REPOSITORY=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ env.GHCR_REPOSITORY }}:prod
+            ghcr.io/${{ env.GHCR_REPOSITORY }}:${{ steps.ver.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+  deploy:
+    needs: [build]
+    # build 成功(push / 新构建)→ 部署;或手动指定 image_tag(跳过构建)→ 直接部署该 tag 回滚
+    if: ${{ always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.image_tag != '')) }}
+    runs-on: ubuntu-latest
+    environment: production   # 无审批规则=纯部署追踪;将来想加人工闸,只需在此环境设 reviewer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup deploy SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/newapi-deploy
+          chmod 600 ~/.ssh/newapi-deploy
+
+      - name: Resolve image tag to deploy
+        id: rt
+        run: |
+          TAG="${{ inputs.image_tag }}"
+          [ -z "$TAG" ] && TAG="${{ needs.build.outputs.tag }}"
+          if [ -z "$TAG" ]; then echo "no tag to deploy" >&2; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying $TAG"
+
+      - name: Rollout
+        env:
+          IMAGE_TAG: ${{ steps.rt.outputs.tag }}
+          SSH_KEY_FILE: /home/runner/.ssh/newapi-deploy
+          GHCR_USER: ${{ github.actor }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          chmod +x deploy/rollout.sh
+          ./deploy/rollout.sh
