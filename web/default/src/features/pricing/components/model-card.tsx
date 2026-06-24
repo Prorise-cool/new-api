@@ -62,6 +62,27 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
+
+  const hasSkuRatios = Boolean(
+    props.model.sku_ratios && props.model.sku_ratios.length > 0
+  )
+  // Effective multiplier range across all SKU rules (tier ratios, enum values,
+  // exists ratio), shown on the card badge so users see the rough surcharge
+  // without opening details. The full ladder stays in the detail drawer.
+  const skuRatioRange = (() => {
+    if (!hasSkuRatios) return null
+    const vals: number[] = []
+    for (const rule of props.model.sku_ratios ?? []) {
+      if (rule.tiers) vals.push(...rule.tiers.map((tier) => tier.ratio))
+      if (rule.enum) vals.push(...Object.values(rule.enum))
+      if (rule.exists_ratio != null) vals.push(rule.exists_ratio)
+    }
+    const eff = vals.filter((v) => v > 0 && v !== 1)
+    if (eff.length === 0) return null
+    const min = Math.min(...eff)
+    const max = Math.max(...eff)
+    return min === max ? `×${min}` : `×${min}–${max}`
+  })()
   const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, {
@@ -239,6 +260,14 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           {isDynamicPricing && (
             <StatusBadge
               label={t('Dynamic Pricing')}
+              variant='warning'
+              copyable={false}
+              size='sm'
+            />
+          )}
+          {hasSkuRatios && (
+            <StatusBadge
+              label={`${t('Parameter-based pricing')}${skuRatioRange ? ` ${skuRatioRange}` : ''}`}
               variant='warning'
               copyable={false}
               size='sm'

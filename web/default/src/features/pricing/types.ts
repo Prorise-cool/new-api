@@ -54,6 +54,8 @@ export type PricingModel = {
   billing_mode?: string
   /** Raw expression describing dynamic / tiered billing */
   billing_expr?: string
+  /** Parameter-based SKU ratio rules (size/quality/duration multipliers) */
+  sku_ratios?: SkuRule[]
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
   /**
@@ -70,9 +72,31 @@ export type PricingModel = {
   capabilities?: ModelCapability[]
 }
 
+/** A single tier in a numeric SKU rule. */
+export type SkuTier = {
+  up_to: number
+  ratio: number
+  label?: string
+}
+
+/** Kind of SKU interpreter: numeric tier, discrete enum, or existence-based. */
+export type SkuKind = 'tier' | 'enum' | 'exists'
+
+/** One parameter-based SKU ratio rule (mirrors backend ratio_setting.SkuRule). */
+export type SkuRule = {
+  models: string[]
+  source: string
+  kind: SkuKind
+  out_key: string
+  enabled: boolean
+  derive?: string
+  tiers?: SkuTier[]
+  enum?: Record<string, number>
+  exists_ratio?: number
+}
+
 /** Input/output modalities supported by a model. */
 export type Modality = 'text' | 'image' | 'audio' | 'video' | 'file'
-
 /** Functional capabilities a model exposes. */
 export type ModelCapability =
   | 'function_calling'

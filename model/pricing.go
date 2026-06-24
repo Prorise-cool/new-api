@@ -35,6 +35,7 @@ type Pricing struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
+	SkuRatios              []ratio_setting.SkuRule `json:"sku_ratios,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -336,6 +337,9 @@ func updatePricing() {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
 			}
+		}
+		if skuRules := ratio_setting.GetSkuRulesForModel(model); len(skuRules) > 0 {
+			pricing.SkuRatios = skuRules
 		}
 		pricingMap = append(pricingMap, pricing)
 	}

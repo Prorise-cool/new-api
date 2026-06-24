@@ -50,6 +50,10 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	// 全量生效倍率结构化记账(原 logContent 文本仅人读,这里补机器可读版本供前端渲染)。
+	if r := collectBillingRatios(info.PriceData.OtherRatios); len(r) > 0 {
+		other["other_ratios"] = r
+	}
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId: info.ChannelId,
 		ModelName: info.OriginModelName,
@@ -125,10 +129,9 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 			other["model_ratio"] = bc.ModelRatio
 		}
 		other["group_ratio"] = bc.GroupRatio
-		if len(bc.OtherRatios) > 0 {
-			for k, v := range bc.OtherRatios {
-				other[k] = v
-			}
+		// 全量生效倍率收进嵌套键 other_ratios,供前端枚举渲染收据(替代旧的扁平 dump)。
+		if r := collectBillingRatios(bc.OtherRatios); len(r) > 0 {
+			other["other_ratios"] = r
 		}
 	}
 	props := task.Properties

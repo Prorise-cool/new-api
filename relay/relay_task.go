@@ -19,6 +19,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -193,6 +194,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		}
 	}
 
+	// 5.5 SKU 参数倍率（视频异步路径）：在适配器 EstimateBilling 之后注入,
+	//     同 OutKey 覆盖适配器硬编码(如 resolution),时长用独立键(红线 #4)。
+	//     SKU 进 OtherRatios 后随 controller/relay.go:590 快照持久化,
+	//     保证预扣/提交修正/token重算三阶段口径一致(红线 #2)。
+	skuRatios := taskSkuRatios(c, info, modelName)
+	for k, v := range skuRatios {
+		info.PriceData.AddOtherRatio(k, v)
+	}
+
 	// 6. 将 OtherRatios 应用到基础额度
 	if !common.StringsContains(constant.TaskPricePatches, modelName) {
 		for _, ra := range info.PriceData.OtherRatios {
@@ -243,6 +253,14 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
 	finalQuota := info.PriceData.Quota
 	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 {
+		// AdjustBillingOnSubmit 返回的是整体替换的 ratios,会清除 SKU(红线 #6)。
+		// 在 recalc 前把 SKU 维度合并回去,保证 SKU 在 quota 与 BillingContext 快照中存活。
+		// 适配器若对同 OutKey 给出新值则以适配器为准(不覆盖适配器返回的键)。
+		for k, v := range skuRatios {
+			if _, exists := adjustedRatios[k]; !exists {
+				adjustedRatios[k] = v
+			}
+		}
 		// 基于调整后的 ratios 重新计算 quota
 		finalQuota = recalcQuotaFromRatios(info, adjustedRatios)
 		info.PriceData.OtherRatios = adjustedRatios
@@ -276,6 +294,32 @@ func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float6
 		}
 	}
 	return int(result)
+}
+
+// taskSkuRatios 为视频异步路径求 SKU 参数倍率。
+// 从 context 的 TaskSubmitReq + Metadata 拍平成 params(非 gjson body,红线 #9),
+// 非 metadata 自定义参数需先扩 TaskSubmitReq(红线 #10)。
+// duration 仅作为取值条件读入,输出独立倍率键由站长配置(禁用 seconds/duration 作 OutKey,红线 #11)。
+func taskSkuRatios(c *gin.Context, info *relaycommon.RelayInfo, modelName string) map[string]float64 {
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil
+	}
+	params := map[string]any{
+		"size":            req.Size,
+		"mode":            req.Mode,
+		"input_reference": req.InputReference,
+	}
+	if req.Duration != 0 {
+		params["duration"] = float64(req.Duration)
+	}
+	if req.Seconds != "" {
+		params["seconds"] = req.Seconds
+	}
+	if len(req.Metadata) > 0 {
+		params["metadata"] = map[string]any(req.Metadata)
+	}
+	return ratio_setting.GetSkuRatios(modelName, params)
 }
 
 var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp *dto.TaskError){

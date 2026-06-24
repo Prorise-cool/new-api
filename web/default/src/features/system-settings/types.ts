@@ -169,6 +169,10 @@ export type ModelSettings = {
   'billing_setting.billing_mode': string
   'billing_setting.billing_expr': string
   'tool_price_setting.prices': string
+  'sku_ratio_setting.enabled': string
+  'sku_ratio_setting.rules': string
+  'sku_ratio_setting.max_total_ratio': string
+  'sku_ratio_setting.model_rules': string
   TopupGroupRatio: string
   GroupRatio: string
   UserUsableGroups: string
@@ -222,6 +226,10 @@ export type BillingSettings = {
   'billing_setting.billing_mode': string
   'billing_setting.billing_expr': string
   'tool_price_setting.prices': string
+  'sku_ratio_setting.enabled': string
+  'sku_ratio_setting.rules': string
+  'sku_ratio_setting.max_total_ratio': string
+  'sku_ratio_setting.model_rules': string
   TopupGroupRatio: string
   GroupRatio: string
   UserUsableGroups: string

@@ -109,7 +109,12 @@ const BILLING_SECTIONS = [
         modelDefaults={getModelDefaults(settings)}
         groupDefaults={getGroupDefaults(settings)}
         toolPricesDefault={settings['tool_price_setting.prices']}
-        visibleTabs={['models', 'tool-prices', 'upstream-sync']}
+        skuRatioDefaults={{
+          enabled: settings['sku_ratio_setting.enabled'],
+          rules: settings['sku_ratio_setting.rules'],
+          maxTotalRatio: settings['sku_ratio_setting.max_total_ratio'],
+        }}
+        visibleTabs={['models', 'tool-prices', 'sku-ratios', 'upstream-sync']}
       />
     ),
   },

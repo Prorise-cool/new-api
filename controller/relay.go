@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -150,10 +151,20 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	relayInfo.SetEstimatePromptTokens(tokens)
 
+	// SKU 参数倍率(图片同步路径):在 ModelPriceHelper 之前求值,
+	// 因为 dall-e + 按次定价时需把内建 ImagePriceRatio 归 1 防双算(红线 #1)。
+	// 实际倍率注入须在 ModelPriceHelper 之后(它会重建 info.PriceData)。
+	imageSkuRatios := prepareImageSkuRatios(relayInfo, request, meta)
+
 	priceData, err := helper.ModelPriceHelper(c, relayInfo, tokens, meta)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		return
+	}
+
+	// ModelPriceHelper 已重建 info.PriceData,此处把 SKU 倍率注入 OtherRatios。
+	for outKey, ratio := range imageSkuRatios {
+		relayInfo.PriceData.AddOtherRatio(outKey, ratio)
 	}
 
 	// common.SetContextKey(c, constant.ContextKeyTokenCountMeta, meta)
@@ -288,6 +299,44 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
 		// Best-effort: leave CombineText empty to avoid large allocations.
 	}
 	return meta
+}
+
+// prepareImageSkuRatios 为图片同步路径求 SKU 参数倍率。
+// 返回待注入 OtherRatios 的倍率集合;非图片请求或全局 off 时返回 nil。
+// 副作用:dall-e + 按次定价且 SKU 命中内建 size/quality 维度时,
+// 把 meta.ImagePriceRatio 归 1,阻止内建倍率重复烘进 modelPrice(红线 #1)。
+func prepareImageSkuRatios(info *relaycommon.RelayInfo, request dto.Request, meta *types.TokenCountMeta) map[string]float64 {
+	imageReq, ok := request.(*dto.ImageRequest)
+	if !ok {
+		return nil
+	}
+
+	model := info.OriginModelName
+	params := map[string]any{
+		"size":    imageReq.Size,
+		"quality": imageReq.Quality,
+	}
+	if imageReq.N != nil {
+		params["n"] = float64(*imageReq.N)
+	}
+	if len(imageReq.Background) > 0 {
+		var bg string
+		if err := common.Unmarshal(imageReq.Background, &bg); err == nil {
+			params["background"] = bg
+		}
+	}
+
+	ratios, overridesBuiltin := ratio_setting.GetSkuRatiosForImage(model, params)
+	if len(ratios) == 0 {
+		return nil
+	}
+
+	// 防双算:仅当按次定价 + dall-e 系内建维度被 SKU 覆盖时,把内建倍率归 1。
+	_, usePrice := ratio_setting.GetModelPrice(model, false)
+	if usePrice && overridesBuiltin && strings.HasPrefix(model, "dall-e") && meta != nil {
+		meta.ImagePriceRatio = 1.0
+	}
+	return ratios
 }
 
 func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service.RetryParam) (*model.Channel, *types.NewAPIError) {

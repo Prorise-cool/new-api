@@ -600,6 +600,9 @@ func handleConfigUpdate(key, value string) bool {
 		performance_setting.UpdateAndSync()
 	} else if configName == "tool_price_setting" {
 		operation_setting.RebuildToolPriceIndex()
+	} else if configName == "sku_ratio_setting" {
+		ratio_setting.RebuildSkuIndex()
+		InvalidatePricingCache() // 刷新模型广场 pricing 缓存里烘进的 SkuRatios(pricing.go:341),避免扣费/展示 ≤60s 错位
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()
 		ratio_setting.InvalidateExposedDataCache()

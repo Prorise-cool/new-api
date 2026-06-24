@@ -77,12 +77,14 @@ import {
 } from '@/features/system-settings/hooks/use-system-options'
 import { useUpdateOption } from '@/features/system-settings/hooks/use-update-option'
 import { normalizeJsonString } from '@/features/system-settings/models/utils'
+import type { SkuRule } from '@/features/system-settings/models/sku-rule-types'
 import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { createModel, updateModel, getModel, getVendors } from '../../api'
 import { getNameRuleOptions, ENDPOINT_TEMPLATES } from '../../constants'
 import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
 import type { Model } from '../../types'
+import { ModelSkuRatioSection } from './model-sku-ratio-section'
 
 // Extended schema for ratio configuration (internal form state only)
 const extendedModelFormSchema = z.object({
@@ -132,6 +134,8 @@ export function ModelMutateDrawer({
   const [promptPrice, setPromptPrice] = useState('')
   const [completionPrice, setCompletionPrice] = useState('')
   const [oldModelName, setOldModelName] = useState<string>('')
+  // Per-model SKU parameter-based pricing rules (sku_ratio_setting.model_rules[model]).
+  const [skuRules, setSkuRules] = useState<SkuRule[]>([])
 
   // Fetch vendors for dropdown
   const { data: vendorsData } = useQuery({
@@ -190,6 +194,10 @@ export function ModelMutateDrawer({
       'billing_setting.billing_mode': '{}',
       'billing_setting.billing_expr': '{}',
       'tool_price_setting.prices': '{}',
+      'sku_ratio_setting.enabled': 'false',
+      'sku_ratio_setting.rules': '[]',
+      'sku_ratio_setting.max_total_ratio': '0',
+      'sku_ratio_setting.model_rules': '{}',
       TopupGroupRatio: '',
       GroupRatio: '',
       UserUsableGroups: '',
@@ -304,6 +312,13 @@ export function ModelMutateDrawer({
 
       // Parse ratio configurations from system settings if available
       if (modelSettings) {
+        // Per-model SKU rules: model_rules is a map of model -> rules.
+        const modelRulesMap = safeJsonParse<Record<string, SkuRule[]>>(
+          modelSettings['sku_ratio_setting.model_rules'],
+          { fallback: {}, silent: true }
+        )
+        setSkuRules(modelRulesMap[model.model_name] ?? [])
+
         const priceMap = safeJsonParse<Record<string, number>>(
           modelSettings.ModelPrice,
           { fallback: {}, silent: true }
@@ -387,6 +402,7 @@ export function ModelMutateDrawer({
       setPromptPrice('')
       setCompletionPrice('')
       setAdvancedOpen(false)
+      setSkuRules([])
       form.reset({
         model_name: currentRow?.model_name || '',
         description: '',
@@ -607,6 +623,34 @@ export function ModelMutateDrawer({
               })
             }
 
+            // Per-model SKU rules: read-modify-write the model_rules map.
+            const skuModelRules = safeJsonParse<Record<string, SkuRule[]>>(
+              modelSettings['sku_ratio_setting.model_rules'],
+              { fallback: {}, silent: true }
+            )
+            // Drop stale entry on rename, then current entry (handles clearing).
+            if (isEditing && oldModelName && oldModelName !== finalModelName) {
+              delete skuModelRules[oldModelName]
+            }
+            delete skuModelRules[finalModelName]
+            if (skuRules.length > 0) {
+              skuModelRules[finalModelName] = skuRules
+            }
+            const newSkuModelRules = normalizeJsonString(
+              JSON.stringify(skuModelRules)
+            )
+            if (
+              newSkuModelRules !==
+              normalizeJsonString(
+                modelSettings['sku_ratio_setting.model_rules']
+              )
+            ) {
+              updates.push({
+                key: 'sku_ratio_setting.model_rules',
+                value: newSkuModelRules,
+              })
+            }
+
             // Apply all updates (including deletions when clearing fields)
             for (const update of updates) {
               await updateOption.mutateAsync(update)
@@ -639,6 +683,7 @@ export function ModelMutateDrawer({
       oldModelName,
       modelSettings,
       updateOption,
+      skuRules,
     ]
   )
 
@@ -1241,6 +1286,17 @@ export function ModelMutateDrawer({
                   </Collapsible>
                 </>
               )}
+            </SideDrawerSection>
+
+            {/* Parameter-based pricing (per-model SKU rules) */}
+            <SideDrawerSection>
+              <h3 className='text-sm font-semibold'>
+                {t('Parameter-based pricing')}
+              </h3>
+              <ModelSkuRatioSection
+                rules={skuRules}
+                onChange={setSkuRules}
+              />
             </SideDrawerSection>
 
             {/* Status & Sync */}

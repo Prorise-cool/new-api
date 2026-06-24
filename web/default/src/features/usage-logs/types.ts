@@ -156,6 +156,10 @@ export interface LogOtherData {
   upstream_model_name?: string
   audio_ratio?: number
   audio_completion_ratio?: number
+  /** Full snapshot of effective billing multipliers (SKU parameter ratios +
+   *  adapter ratios), keyed by arbitrary OutKey. Same source as actual billing;
+   *  rendered verbatim in the usage-log receipt for charge transparency. */
+  other_ratios?: Record<string, number>
   frt?: number
   // Tiered (expression-based) billing fields, set by backend when
   // billing_mode === 'tiered_expr'. expr_b64 is the base64-encoded billing

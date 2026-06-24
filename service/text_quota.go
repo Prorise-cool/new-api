@@ -455,6 +455,11 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		// prompt/cache fields here, otherwise old upstream payloads may be double-counted.
 		other["input_tokens_total"] = usage.InputTokens
 	}
+	// 计费倍率快照:记录所有生效倍率(SKU 参数倍率 + 适配器倍率),供收据透明化。
+	// 文本/图片路径无 AdjustBillingOnSubmit,此处 OtherRatios 已是最终实扣值。
+	if r := collectBillingRatios(relayInfo.PriceData.OtherRatios); len(r) > 0 {
+		other["other_ratios"] = r
+	}
 	if tieredBillingApplied {
 		InjectTieredBillingInfo(other, relayInfo, tieredResult)
 	}

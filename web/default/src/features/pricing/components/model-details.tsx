@@ -74,6 +74,7 @@ import type {
   TokenUnit,
 } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
+import { SkuRatioBreakdown } from './sku-ratio-breakdown'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
 
@@ -1193,6 +1194,9 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             />
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
+            )}
+            {props.model.sku_ratios && props.model.sku_ratios.length > 0 && (
+              <SkuRatioBreakdown rules={props.model.sku_ratios} />
             )}
             <GroupPricingSection
               model={props.model}

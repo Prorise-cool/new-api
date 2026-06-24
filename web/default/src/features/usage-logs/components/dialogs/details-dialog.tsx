@@ -30,12 +30,14 @@ import {
   UserCog,
   Info,
   LogIn,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Dialog } from '@/components/dialog'
@@ -327,6 +329,49 @@ function BillingBreakdown(props: {
       {rows.map((row, idx) => (
         <DetailRow key={idx} label={row.label} value={row.value} mono />
       ))}
+    </DetailSection>
+  )
+}
+
+// Friendlier labels for known quantity-style OutKeys that flow through
+// OtherRatios as raw values (not configurable ratios).
+const RATIO_OUT_KEY_LABELS: Record<string, string> = {
+  n: 'count',
+  seconds: 'duration(s)',
+}
+
+// Human label for an arbitrary billing-ratio OutKey. OutKeys are site-admin
+// configured at runtime, so they are not in the compile-time i18n dictionary:
+// strip the sku_ prefix and map known quantity keys; otherwise show as-is.
+function ratioOutKeyLabel(key: string): string {
+  if (RATIO_OUT_KEY_LABELS[key]) return RATIO_OUT_KEY_LABELS[key]
+  return key.startsWith('sku_') ? key.slice(4) : key
+}
+
+// Renders the full snapshot of effective billing multipliers (SKU parameter
+// ratios + adapter ratios) recorded on the consume/refund log. Same source as
+// actual billing, so the receipt always matches what was charged.
+function BillingRatiosBreakdown(props: { other: LogOtherData }) {
+  const { t } = useTranslation()
+  const ratios = props.other.other_ratios
+  if (!ratios || Object.keys(ratios).length === 0) return null
+
+  return (
+    <DetailSection
+      icon={<SlidersHorizontal className='size-3.5' aria-hidden='true' />}
+      label={t('Applied Multipliers')}
+    >
+      <div className='flex flex-wrap gap-1.5'>
+        {Object.entries(ratios).map(([key, ratio]) => (
+          <Badge
+            key={`ratio-${key}`}
+            variant='secondary'
+            className='shrink-0 bg-orange-100 font-mono text-orange-700 dark:bg-orange-500/20 dark:text-orange-300'
+          >
+            {ratioOutKeyLabel(key)} ×{ratio}
+          </Badge>
+        ))}
+      </div>
     </DetailSection>
   )
 }
@@ -960,6 +1005,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
             other={other}
             isAdmin={props.isAdmin}
           />
+        )}
+
+        {/* Applied billing multipliers (SKU parameter ratios + adapter ratios);
+            also surfaces on task refund/settlement logs (type=6). */}
+        {(isConsume || isRefund) && other && !isViolation && (
+          <BillingRatiosBreakdown other={other} />
         )}
 
         {/* Tiered pricing breakdown (when billing_mode is tiered_expr) */}
