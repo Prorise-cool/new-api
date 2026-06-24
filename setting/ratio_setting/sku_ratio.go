@@ -115,11 +115,22 @@ func GetSkuRulesForModel(model string) []SkuRule {
 	if idx == nil || !idx.enabled || len(idx.rules) == 0 {
 		return nil
 	}
+	// 按 OutKey 去重:同 OutKey 后写覆盖,与计费 buildRatioMap 同源(精确 > 通配)。
+	// pos 记录每个 OutKey 在 rules 里的下标:首次出现追加(定序),再次命中
+	// 原地覆盖(值取最后一条匹配规则)。避免双层配置(全局通配 + 模型侧)对
+	// 同一维度在模型广场显示两次、且暗示其叠加 —— 而计费实际只取最后一条。
+	pos := make(map[string]int, len(idx.rules))
 	var rules []SkuRule
 	for _, cr := range idx.rules {
-		if matchModel(cr.rule.Models, model) {
-			rules = append(rules, cr.rule)
+		if !matchModel(cr.rule.Models, model) {
+			continue
 		}
+		if i, ok := pos[cr.rule.OutKey]; ok {
+			rules[i] = cr.rule
+			continue
+		}
+		pos[cr.rule.OutKey] = len(rules)
+		rules = append(rules, cr.rule)
 	}
 	return rules
 }

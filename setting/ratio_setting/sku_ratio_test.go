@@ -325,6 +325,56 @@ func TestGetSkuRulesForModelIncludesModelRules(t *testing.T) {
 	assert.Equal(t, "sku_quality", rules[0].OutKey)
 }
 
+// TestGetSkuRulesForModelDedupesByOutKey 复现生产场景:模型同时被全局通配规则
+// 与精确模型规则命中(同 OutKey)。展示需按 OutKey 去重且精确覆盖通配,与计费
+// buildRatioMap 同源 —— 否则模型广场会把同一维度显示两次、且暗示其叠加,而计费
+// 实际只取最后一条。
+func TestGetSkuRulesForModelDedupesByOutKey(t *testing.T) {
+	setSkuConfig(t, SkuRatioConfig{
+		Enabled: true,
+		// 全局通配:gpt-image* 的 size + quality(站长「统一发放」)
+		Rules: []SkuRule{
+			{Models: []string{"gpt-image*"}, Source: "size", Kind: SkuKindEnum, OutKey: "sku_size", Enabled: true,
+				Enum: map[string]float64{"big": 0.9}},
+			{Models: []string{"gpt-image*"}, Source: "quality", Kind: SkuKindEnum, OutKey: "sku_quality", Enabled: true,
+				Enum: map[string]float64{"high": 0.9}},
+		},
+		// 模型侧:gpt-image-2 同名 OutKey,值取 0.5 以验证覆盖方向(精确 > 通配)
+		ModelRules: map[string][]SkuRule{
+			"gpt-image-2": {
+				{Source: "size", Kind: SkuKindEnum, OutKey: "sku_size", Enabled: true,
+					Enum: map[string]float64{"big": 0.5}},
+				{Source: "quality", Kind: SkuKindEnum, OutKey: "sku_quality", Enabled: true,
+					Enum: map[string]float64{"high": 0.5}},
+			},
+		},
+	})
+
+	rules := GetSkuRulesForModel("gpt-image-2")
+	// 去重前会是 4 条(全局 2 + 模型侧 2);去重后每个 OutKey 仅一条
+	require.Len(t, rules, 2, "同 OutKey 应去重,size/quality 各一条")
+
+	byKey := make(map[string]SkuRule, len(rules))
+	for _, r := range rules {
+		byKey[r.OutKey] = r
+	}
+	require.Contains(t, byKey, "sku_size")
+	require.Contains(t, byKey, "sku_quality")
+	// 精确模型规则覆盖全局通配:Models 为模型名,值取模型侧的 0.5
+	assert.Equal(t, []string{"gpt-image-2"}, byKey["sku_size"].Models, "精确规则应覆盖通配")
+	assert.Equal(t, 0.5, byKey["sku_size"].Enum["big"])
+	assert.Equal(t, 0.5, byKey["sku_quality"].Enum["high"])
+	// 展示顺序稳定:先 size 后 quality(首次出现顺序,与全局规则定义序一致)
+	assert.Equal(t, "sku_size", rules[0].OutKey)
+	assert.Equal(t, "sku_quality", rules[1].OutKey)
+
+	// 关键不变量:展示去重必须与计费同源。GetSkuRatios 经 buildRatioMap 已按
+	// OutKey 折叠,展示侧去重后两者口径完全一致(同 0.5,精确覆盖通配)。
+	ratios := GetSkuRatios("gpt-image-2", map[string]any{"size": "big", "quality": "high"})
+	assert.Equal(t, map[string]float64{"sku_size": 0.5, "sku_quality": 0.5}, ratios,
+		"展示去重应与计费 buildRatioMap 折叠口径一致")
+}
+
 // TestConcurrentReadDuringReload 验证热路径并发读 + 配置 reload 无 data race(红线 #7)。
 // 必须配合 go test -race 运行。
 func TestConcurrentReadDuringReload(t *testing.T) {
