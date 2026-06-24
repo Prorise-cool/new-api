@@ -70,6 +70,9 @@ jobs:
     # build 成功(push / 新构建)→ 部署;或手动指定 image_tag(跳过构建)→ 直接部署该 tag 回滚
     if: ${{ always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.image_tag != '')) }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read   # 让 GITHUB_TOKEN 可登录 GHCR 拉取私有镜像(GHCR_PULL_TOKEN 未配时的兜底)
     environment: production   # 无审批规则=纯部署追踪;将来想加人工闸,只需在此环境设 reviewer
     steps:
       - uses: actions/checkout@v4
@@ -95,8 +98,10 @@ jobs:
         env:
           IMAGE_TAG: ${{ steps.rt.outputs.tag }}
           SSH_KEY_FILE: /home/runner/.ssh/newapi-deploy
-          GHCR_USER: ${{ github.actor }}
-          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          # 优先用站长配置的 GHCR_PULL_TOKEN;未配则回退到本次 run 自动生成的 GITHUB_TOKEN
+          # (与 build job 推镜像同源,对本仓库 GHCR 包有权限,拉私有包不再 denied)
+          GHCR_USER: ${{ secrets.GHCR_PULL_TOKEN != '' && github.actor || github.repository_owner }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN != '' && secrets.GHCR_PULL_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           chmod +x deploy/rollout.sh
           ./deploy/rollout.sh
