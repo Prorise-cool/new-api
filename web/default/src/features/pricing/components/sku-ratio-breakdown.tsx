@@ -20,41 +20,11 @@ import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { SkuRule, SkuTier } from '../types'
+import { KIND_LABEL, sourceLabel, tierBound } from '../lib/sku-format'
 
 type SkuRatioBreakdownProps = {
   /** Structured SKU rules carried by the backend pricing payload. */
   rules: SkuRule[] | null | undefined
-}
-
-const KIND_LABEL: Record<string, string> = {
-  tier: 'By value tier',
-  enum: 'By option',
-  exists: 'When present',
-}
-
-/** Human-friendly label for the parameter source key. */
-function sourceLabel(source: string): string {
-  // metadata.fps -> fps; keep other keys as-is
-  const idx = source.lastIndexOf('.')
-  return idx >= 0 ? source.slice(idx + 1) : source
-}
-
-// Unit suffix for a tier bound, derived from the rule's numeric derivation.
-const DERIVE_UNIT: Record<string, string> = {
-  long_edge: 'px',
-  megapixels: 'MP',
-  seconds: 's',
-  number: '',
-}
-
-/** Render a single tier bound as "≤2048px" / "≤2.1MP" / "≤8s" / "∞" (up_to=0 = no upper bound). */
-function tierBound(tier: SkuTier, derive?: string): string {
-  if (tier.up_to === 0) return '∞'
-  if (tier.label?.trim()) return tier.label
-  const unit = derive ? (DERIVE_UNIT[derive] ?? '') : ''
-  // megapixels up_to is a float (e.g. 2.097152); round for readability.
-  const bound = derive === 'megapixels' ? tier.up_to.toFixed(1) : tier.up_to
-  return `≤${bound}${unit}`
 }
 
 /** Render the tier ladder as badges, e.g. "≤2048px ×2.0" / "∞ ×5.0". */

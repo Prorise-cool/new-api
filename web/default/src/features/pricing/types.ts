@@ -56,6 +56,8 @@ export type PricingModel = {
   billing_expr?: string
   /** Parameter-based SKU ratio rules (size/quality/duration multipliers) */
   sku_ratios?: SkuRule[]
+  /** Cross-dimension product cap for SKU ratios (0 = unlimited). Mirrors backend max_total_ratio. */
+  sku_max_total_ratio?: number
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
   /**

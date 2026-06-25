@@ -54,17 +54,17 @@ var forbiddenOutKeys = map[string]bool{
 
 // SkuTier 数值分档的单档。
 type SkuTier struct {
-	UpTo  float64 `json:"up_to"`           // 派生值上界(含);最后一档置 0 = 无上限(兜底)
+	UpTo  float64 `json:"up_to"` // 派生值上界(含);最后一档置 0 = 无上限(兜底)
 	Ratio float64 `json:"ratio"`
 	Label string  `json:"label,omitempty"` // "1K"/"2K"/"4K",仅前端展示用
 }
 
 // SkuRule 一条规则。
 type SkuRule struct {
-	Models  []string `json:"models"`   // 通配: ["gpt-image-1","sora*","veo*"]
-	Source  string   `json:"source"`   // params map 的 key: "size"/"quality"/"mode"/"metadata.fps"
-	Kind    string   `json:"kind"`     // tier | enum | exists
-	OutKey  string   `json:"out_key"`  // 写进 OtherRatios 的键名
+	Models  []string `json:"models"`  // 通配: ["gpt-image-1","sora*","veo*"]
+	Source  string   `json:"source"`  // params map 的 key: "size"/"quality"/"mode"/"metadata.fps"
+	Kind    string   `json:"kind"`    // tier | enum | exists
+	OutKey  string   `json:"out_key"` // 写进 OtherRatios 的键名
 	Enabled bool     `json:"enabled"`
 
 	// Kind=tier: 数值分档
@@ -135,6 +135,18 @@ func GetSkuRulesForModel(model string) []SkuRule {
 	return rules
 }
 
+// GetSkuMaxTotalRatio 返回当前 SKU 表的跨维度连乘上限(0=不限)。
+// 供模型广场试算器复刻后端 clampToMaxTotal,保证展示与扣费同源 ——
+// 读的是与 GetSkuRulesForModel 同一份预编译快照,杜绝 clamp 值与规则错位。
+// 全局 off 时返回 0(等价不 clamp)。
+func GetSkuMaxTotalRatio() float64 {
+	idx := skuIndex.Load()
+	if idx == nil || !idx.enabled {
+		return 0
+	}
+	return idx.maxTotalRatio
+}
+
 func init() {
 	config.GlobalConfig.Register("sku_ratio_setting", &skuRatioSetting)
 	RebuildSkuIndex()
@@ -151,8 +163,8 @@ func init() {
 
 // compiledRule 是预编译后的单条规则。
 type compiledRule struct {
-	rule    SkuRule
-	tiers   []SkuTier // tier 模式:已按 UpTo 升序(0 上限档置末尾)
+	rule  SkuRule
+	tiers []SkuTier // tier 模式:已按 UpTo 升序(0 上限档置末尾)
 }
 
 type compiledSkuRules struct {

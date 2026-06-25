@@ -295,3 +295,45 @@ export function formatRequestPrice(
     abbreviate: false,
   })
 }
+
+/**
+ * Base unit price in USD (raw number), for the SKU calculator to multiply SKU
+ * ratios onto. Same source as formatPrice / formatFixedPrice (the pre-format
+ * USD value), but returns the number instead of a formatted string and does NOT
+ * divide by the token unit — callers multiply the SKU ratios, then format.
+ *
+ * - Per-request models (quota_type=REQUEST): (model_price||0) × groupRatio, USD/request.
+ * - Token models: model_ratio × 2 × groupRatio × typeRatio, USD per 1M tokens.
+ *   typeRatio is chosen by PriceType; returns NaN when the matching ratio field
+ *   is missing so the caller can skip that PriceType.
+ */
+export function getBaseUnitPriceUSD(
+  model: PricingModel,
+  opts: {
+    type: PriceType
+    groupRatio: number
+    showWithRecharge?: boolean
+    priceRate?: number
+    usdExchangeRate?: number
+  }
+): number {
+  const {
+    type,
+    groupRatio,
+    showWithRecharge = false,
+    priceRate = 1,
+    usdExchangeRate = 1,
+  } = opts
+
+  const priceInUSD =
+    model.quota_type === QUOTA_TYPE_VALUES.REQUEST
+      ? (model.model_price || 0) * groupRatio
+      : calculateTokenPrice(model, type, groupRatio)
+
+  return applyRechargeRate(
+    priceInUSD,
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+}

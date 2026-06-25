@@ -75,6 +75,7 @@ import type {
 } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { SkuRatioBreakdown } from './sku-ratio-breakdown'
+import { SkuRatioCalculator } from './sku-ratio-calculator'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
 
@@ -1196,7 +1197,18 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
             {props.model.sku_ratios && props.model.sku_ratios.length > 0 && (
-              <SkuRatioBreakdown rules={props.model.sku_ratios} />
+              <>
+                <SkuRatioBreakdown rules={props.model.sku_ratios} />
+                <SkuRatioCalculator
+                  model={props.model}
+                  groupRatio={1}
+                  groupKey='_base'
+                  priceRate={props.priceRate}
+                  usdExchangeRate={props.usdExchangeRate}
+                  tokenUnit={props.tokenUnit}
+                  showRechargePrice={showRechargePrice}
+                />
+              </>
             )}
             <GroupPricingSection
               model={props.model}

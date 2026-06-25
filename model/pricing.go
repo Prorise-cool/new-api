@@ -36,6 +36,7 @@ type Pricing struct {
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
 	SkuRatios              []ratio_setting.SkuRule `json:"sku_ratios,omitempty"`
+	SkuMaxTotalRatio       float64                 `json:"sku_max_total_ratio,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
@@ -340,13 +341,15 @@ func updatePricing() {
 		}
 		if skuRules := ratio_setting.GetSkuRulesForModel(model); len(skuRules) > 0 {
 			pricing.SkuRatios = skuRules
+			// 随规则一并带出跨维度连乘上限,供前端试算器复刻 clamp(展示与扣费同源)。
+			pricing.SkuMaxTotalRatio = ratio_setting.GetSkuMaxTotalRatio()
 		}
 		pricingMap = append(pricingMap, pricing)
 	}
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {
-		pricingMap[0].PricingVersion = "5a90f2b86c08bd983a9a2e6d66c255f4eaef9c4bc934386d2b6ae84ef0ff1f1f"
+		pricingMap[0].PricingVersion = "6b01a3c97d19ce0a4b0b3f7e77d366059bfa0d5cda045497e3c7bf95f1aa2a2a"
 	}
 
 	// 刷新缓存映射，供高并发快速查询
