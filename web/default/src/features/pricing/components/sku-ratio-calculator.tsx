@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import { getBaseUnitPriceUSD } from '../lib/price'
+import { getAvailableGroups } from '../lib/model-helpers'
 import {
   applySkuClamp,
   defaultSelection,
@@ -38,14 +39,15 @@ import type { PricingModel, SkuRule, TokenUnit } from '../types'
  * parameter tier (size / quality / ...) and see the exact per-request charge
  * with the multiplier chain spelled out, so the abstract `×0.85` becomes a
  * concrete amount. Math is same-source with billing: base price comes from the
- * shared price helpers and the cross-dimension cap mirrors the backend clamp.
+ * shared price helpers, the group ratio is applied as an explicit factor (just
+ * like the bill), and the cross-dimension cap mirrors the backend clamp.
  */
 type SkuRatioCalculatorProps = {
   model: PricingModel
-  /** Group ratio used as the estimate base (1 = `_base`, the un-discounted price). */
-  groupRatio: number
-  /** Group key for the base (kept for future "estimate per group" support). */
-  groupKey: string
+  /** Per-group ratio map; the selected group's ratio multiplies the base, matching the bill. */
+  groupRatio: Record<string, number>
+  /** Usable groups (with desc/ratio) for resolving which groups this model is sold in. */
+  usableGroup: Record<string, { desc: string; ratio: number }>
   priceRate: number
   usdExchangeRate: number
   tokenUnit: TokenUnit
@@ -58,6 +60,21 @@ function buildDefaultSelection(rules: SkuRule[]): Record<string, string> {
   const sel: Record<string, string> = {}
   for (const rule of rules) sel[rule.out_key] = defaultSelection(rule)
   return sel
+}
+
+/**
+ * Pick the default group for the estimate: the one with the smallest ratio
+ * (cheapest), which matches the headline price shown on the model card. Returns
+ * '' when the model has no usable groups (group factor then defaults to ×1).
+ */
+function pickDefaultGroup(
+  groups: string[],
+  groupRatio: Record<string, number>
+): string {
+  if (groups.length === 0) return ''
+  return groups.reduce((best, g) =>
+    (groupRatio[g] ?? 1) < (groupRatio[best] ?? 1) ? g : best
+  )
 }
 
 /** Compact ratio for the formula: integers as-is, else up to 3 decimals trimmed. */
@@ -78,6 +95,7 @@ export function SkuRatioCalculator(props: SkuRatioCalculatorProps) {
   const {
     model,
     groupRatio,
+    usableGroup,
     priceRate,
     usdExchangeRate,
     tokenUnit,
@@ -89,8 +107,19 @@ export function SkuRatioCalculator(props: SkuRatioCalculatorProps) {
     [model.sku_ratios]
   )
 
+  // Groups this model is actually sold in. The estimate multiplies the selected
+  // group's ratio onto the base, mirroring how the bill is computed.
+  const availableGroups = useMemo(
+    () => getAvailableGroups(model, usableGroup || {}),
+    [model, usableGroup]
+  )
+
   const [selection, setSelection] = useState<Record<string, string>>(() =>
     buildDefaultSelection(visibleRules)
+  )
+  // Default to the cheapest group (smallest ratio), matching the card's headline price.
+  const [selectedGroup, setSelectedGroup] = useState<string>(() =>
+    pickDefaultGroup(availableGroups, groupRatio)
   )
 
   // Reset selection when the model (and thus its rule set) changes.
@@ -98,24 +127,44 @@ export function SkuRatioCalculator(props: SkuRatioCalculatorProps) {
     setSelection(buildDefaultSelection(visibleRules))
   }, [visibleRules])
 
+  // Re-pick a valid default group when the model's group set changes.
+  useEffect(() => {
+    setSelectedGroup(pickDefaultGroup(availableGroups, groupRatio))
+  }, [availableGroups, groupRatio])
+
   if (visibleRules.length === 0) return null
 
   const isRequest = model.quota_type === QUOTA_TYPE_VALUES.REQUEST
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const unitSuffix = isRequest ? `/ ${t('request')}` : `/ ${tokenUnitLabel}`
 
-  // Base unit price (USD), same source as formatPrice / formatFixedPrice. For
-  // token models this is USD per 1M tokens; divide to the display unit. SKU
+  // Group ratio applied to this estimate (1 when the model has no usable groups).
+  const activeGroupRatio = selectedGroup ? (groupRatio[selectedGroup] ?? 1) : 1
+
+  // Base unit price (USD), same source as formatPrice / formatFixedPrice, with
+  // the selected group's ratio applied so the estimate matches the actual bill.
+  // For token models this is USD per 1M tokens; divide to the display unit. SKU
   // ratios are unit-independent multipliers, so order does not matter.
   const baseRawUSD = getBaseUnitPriceUSD(model, {
     type: 'input',
-    groupRatio,
+    groupRatio: activeGroupRatio,
     showWithRecharge: showRechargePrice,
     priceRate,
     usdExchangeRate,
   })
   const unitDivisor = isRequest ? 1 : TOKEN_UNIT_DIVISORS[tokenUnit]
   const baseUnitUSD = baseRawUSD / unitDivisor
+
+  // The un-grouped base (groupRatio=1), shown in the header so users can see the
+  // list price before the group multiplier is applied as an explicit factor.
+  const listRawUSD = getBaseUnitPriceUSD(model, {
+    type: 'input',
+    groupRatio: 1,
+    showWithRecharge: showRechargePrice,
+    priceRate,
+    usdExchangeRate,
+  })
+  const listUnitUSD = listRawUSD / unitDivisor
 
   // Selected factor per rule (incl. ×1 for display completeness).
   const rawFactors = visibleRules.map((rule) => ({
@@ -166,13 +215,43 @@ export function SkuRatioCalculator(props: SkuRatioCalculatorProps) {
         <div className='text-muted-foreground text-xs'>
           {t('Base Price')}{' '}
           <span className='text-foreground font-mono font-medium'>
-            {fmt(baseUnitUSD)}
+            {fmt(listUnitUSD)}
           </span>
           <span className='text-muted-foreground/60'> {unitSuffix}</span>
         </div>
       </div>
 
       <div className='bg-muted/50 space-y-3 rounded-md px-3 py-2.5'>
+        {/* Group picker — the selected group's ratio multiplies the base, matching the bill. */}
+        {availableGroups.length > 0 && (
+          <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
+            <span className='text-foreground min-w-14 text-xs font-medium'>
+              {t('Group')}
+            </span>
+            <ToggleGroup
+              variant='outline'
+              size='sm'
+              spacing={1}
+              value={[selectedGroup]}
+              onValueChange={(value) => {
+                const arr = value as string[]
+                if (arr.length) setSelectedGroup(arr[arr.length - 1])
+              }}
+              className='max-w-full flex-wrap'
+            >
+              {availableGroups.map((g) => (
+                <ToggleGroupItem
+                  key={g}
+                  value={g}
+                  className='font-mono text-xs'
+                >
+                  {usableGroup[g]?.desc || g} ×{groupRatio[g] ?? 1}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        )}
+
         {/* Parameter pickers */}
         <div className='space-y-2'>
           {visibleRules.map((rule) => {
@@ -235,10 +314,25 @@ export function SkuRatioCalculator(props: SkuRatioCalculatorProps) {
           })}
         </div>
 
-        {/* Formula: base × each selected factor = final charge */}
+        {/* Formula: list price × group ratio × each selected SKU factor = final charge */}
         <div className='border-border/60 border-t pt-2.5'>
           <div className='flex flex-wrap items-baseline gap-x-1.5 gap-y-1 font-mono text-sm'>
-            <span className='text-foreground'>{fmt(baseUnitUSD)}</span>
+            <span className='text-foreground'>{fmt(listUnitUSD)}</span>
+            {activeGroupRatio !== 1 && (
+              <span className='inline-flex items-baseline gap-1'>
+                <span className='text-muted-foreground'>×</span>
+                <span className={ratioColorClass(activeGroupRatio)}>
+                  {formatRatio(activeGroupRatio)}
+                </span>
+                <span className='text-muted-foreground/70 text-xs'>
+                  ({t('Group')}
+                  {selectedGroup
+                    ? `: ${usableGroup[selectedGroup]?.desc || selectedGroup}`
+                    : ''}
+                  )
+                </span>
+              </span>
+            )}
             {factors.map((f) => (
               <span
                 key={f.rule.out_key}

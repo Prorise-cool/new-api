@@ -1201,8 +1201,8 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
                 <SkuRatioBreakdown rules={props.model.sku_ratios} />
                 <SkuRatioCalculator
                   model={props.model}
-                  groupRatio={1}
-                  groupKey='_base'
+                  groupRatio={props.groupRatio}
+                  usableGroup={props.usableGroup}
                   priceRate={props.priceRate}
                   usdExchangeRate={props.usdExchangeRate}
                   tokenUnit={props.tokenUnit}
