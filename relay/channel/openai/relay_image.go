@@ -35,8 +35,17 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
-	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
+	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && (oaiError.Type != "" || oaiError.Message != "") {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
+	}
+
+	var imageResp dto.ImageResponse
+	if common.Unmarshal(responseBody, &imageResp) == nil && len(imageResp.Data) == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			http.StatusInternalServerError,
+		)
 	}
 
 	// 写入新的 response body
@@ -207,9 +216,18 @@ func OpenaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 
 	var usageResp dto.SimpleResponse
 	_ = common.Unmarshal(responseBody, &usageResp)
-	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
+	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && (oaiError.Type != "" || oaiError.Message != "") {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
+
+	if len(imageResp.Data) == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			http.StatusInternalServerError,
+		)
+	}
+
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 

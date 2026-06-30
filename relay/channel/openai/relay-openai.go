@@ -143,6 +143,14 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	})
 
+	if info.ReceivedResponseCount == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			http.StatusInternalServerError,
+		)
+	}
+
 	// 对音频模型，从倒数第二个stream data中提取usage信息
 	if isAudioModel && secondLastStreamData != "" {
 		var streamResp struct {
@@ -218,6 +226,14 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	if oaiError := simpleResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
+	}
+
+	if len(simpleResponse.Choices) == 0 && simpleResponse.Usage.CompletionTokens == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			http.StatusInternalServerError,
+		)
 	}
 
 	for _, choice := range simpleResponse.Choices {
