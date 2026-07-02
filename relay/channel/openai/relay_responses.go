@@ -40,6 +40,17 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		c.Set("image_generation_call_size", responsesResponse.GetSize())
 	}
 
+	// 空回不计费：上游无输出内容、无输出 token，且非图片生成调用。
+	// 返回 500 触发 Relay 层自动退还预扣费。
+	if len(responsesResponse.Output) == 0 && !c.GetBool("image_generation_call") &&
+		(responsesResponse.Usage == nil || responsesResponse.Usage.OutputTokens == 0) {
+		return nil, types.NewError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			types.ErrOptionWithStatusCode(http.StatusInternalServerError),
+		)
+	}
+
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
@@ -138,6 +149,16 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			completionTokens := service.CountTextToken(tempStr, info.UpstreamModelName)
 			usage.CompletionTokens = completionTokens
 		}
+	}
+
+	// 空回不计费：上游无输出 token、无输出文本，且非图片生成调用。
+	// 返回 500 触发 Relay 层自动退还预扣费。
+	if usage.CompletionTokens == 0 && responseTextBuilder.Len() == 0 && !c.GetBool("image_generation_call") {
+		return nil, types.NewError(
+			fmt.Errorf("空回不计费，本次已自动免费"),
+			types.ErrorCodeBadResponseBody,
+			types.ErrOptionWithStatusCode(http.StatusInternalServerError),
+		)
 	}
 
 	if usage.PromptTokens == 0 && usage.CompletionTokens != 0 {
