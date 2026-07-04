@@ -4906,6 +4906,15 @@
     "How to turn the value into a number. long_edge: longest side of size. megapixels: width*height. number/seconds: parse directly.": "How to turn the value into a number. long_edge: longest side of size. megapixels: width*height. number/seconds: parse directly.",
     "Each bracket: the derived value <= up_to gets that multiplier. Set up_to = 0 for the no-upper-bound catch-all (put it last).": "Each bracket: the derived value <= up_to gets that multiplier. Set up_to = 0 for the no-upper-bound catch-all (put it last).",
     "Map each parameter value to a multiplier, e.g. standard -> 1, hd -> 2. Values not listed are not surcharged (x1).": "Map each parameter value to a multiplier, e.g. standard -> 1, hd -> 2. Values not listed are not surcharged (x1).",
-    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1."
+    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.",
+    "Empty Response Billing": "Empty Response Billing",
+    "Channel-level setting overrides the global channel-type policy": "Channel-level setting overrides the global channel-type policy",
+    "Inherit global setting": "Inherit global setting",
+    "Do not bill empty responses": "Do not bill empty responses",
+    "Global Empty Response Billing": "Global Empty Response Billing",
+    "Channels without an explicit setting inherit this policy. Explicit channel settings still have the highest priority.": "Channels without an explicit setting inherit this policy. Explicit channel settings still have the highest priority.",
+    "Channel types to bill": "Channel types to bill",
+    "Select channel types...": "Select channel types...",
+    "Selected channel types will bill upstream empty responses by default instead of auto-refunding.": "Selected channel types will bill upstream empty responses by default instead of auto-refunding."
   }
 }

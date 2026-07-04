@@ -32,10 +32,22 @@ func (p ChatCompletionsToResponsesPolicy) IsChannelEnabled(channelID int, channe
 	return false
 }
 
+type EmptyResponseBillingPolicy struct {
+	ChannelTypes map[int]bool `json:"channel_types"`
+}
+
+func (p EmptyResponseBillingPolicy) IsChannelTypeEnabled(channelType int) bool {
+	if channelType <= 0 || len(p.ChannelTypes) == 0 {
+		return false
+	}
+	return p.ChannelTypes[channelType]
+}
+
 type GlobalSettings struct {
 	PassThroughRequestEnabled        bool                             `json:"pass_through_request_enabled"`
 	ThinkingModelBlacklist           []string                         `json:"thinking_model_blacklist"`
 	ChatCompletionsToResponsesPolicy ChatCompletionsToResponsesPolicy `json:"chat_completions_to_responses_policy"`
+	EmptyResponseBillingPolicy       EmptyResponseBillingPolicy       `json:"empty_response_billing_policy"`
 }
 
 // 默认配置
@@ -48,6 +60,9 @@ var defaultOpenaiSettings = GlobalSettings{
 	ChatCompletionsToResponsesPolicy: ChatCompletionsToResponsesPolicy{
 		Enabled:     false,
 		AllChannels: true,
+	},
+	EmptyResponseBillingPolicy: EmptyResponseBillingPolicy{
+		ChannelTypes: map[int]bool{},
 	},
 }
 

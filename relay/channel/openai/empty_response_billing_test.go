@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
@@ -15,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newEmptyResponseBillingContext(body string, emptyResponseBillingEnabled bool) (*gin.Context, *httptest.ResponseRecorder, *http.Response, *relaycommon.RelayInfo) {
+func newEmptyResponseBillingContext(body string, emptyResponseBillingEnabled *bool) (*gin.Context, *httptest.ResponseRecorder, *http.Response, *relaycommon.RelayInfo) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
@@ -29,6 +30,7 @@ func newEmptyResponseBillingContext(body string, emptyResponseBillingEnabled boo
 		RelayFormat:     types.RelayFormatOpenAI,
 		OriginModelName: "gpt-test",
 		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeOpenAI,
 			UpstreamModelName: "gpt-test",
 			ChannelOtherSettings: dto.ChannelOtherSettings{
 				EmptyResponseBillingEnabled: emptyResponseBillingEnabled,
@@ -43,7 +45,7 @@ func TestOpenaiHandlerKeepsEmptyResponseFreeByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := `{"id":"chatcmpl-empty","object":"chat.completion","created":1710000000,"model":"gpt-test","choices":[],"usage":{"prompt_tokens":12,"completion_tokens":0,"total_tokens":12}}`
-	c, recorder, resp, info := newEmptyResponseBillingContext(body, false)
+	c, recorder, resp, info := newEmptyResponseBillingContext(body, nil)
 
 	usage, err := OpenaiHandler(c, info, resp)
 
@@ -57,7 +59,8 @@ func TestOpenaiHandlerBillsEmptyResponseWhenEnabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := `{"id":"chatcmpl-empty","object":"chat.completion","created":1710000000,"model":"gpt-test","choices":[],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`
-	c, recorder, resp, info := newEmptyResponseBillingContext(body, true)
+	enabled := true
+	c, recorder, resp, info := newEmptyResponseBillingContext(body, &enabled)
 
 	usage, err := OpenaiHandler(c, info, resp)
 

@@ -4906,6 +4906,15 @@
     "How to turn the value into a number. long_edge: longest side of size. megapixels: width*height. number/seconds: parse directly.": "如何把参数值转成数字。long_edge:尺寸的长边;megapixels:宽×高;number/seconds:直接解析。",
     "Each bracket: the derived value <= up_to gets that multiplier. Set up_to = 0 for the no-upper-bound catch-all (put it last).": "每个档位:派生值 ≤ 上界时套用该倍率。上界填 0 表示无上限兜底档(放在最后)。",
     "Map each parameter value to a multiplier, e.g. standard -> 1, hd -> 2. Values not listed are not surcharged (x1).": "把每个参数值映射到倍率,如 standard → 1、hd → 2。未列出的值不加价(×1)。",
-    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "字段存在/为 true 时套用的倍率(如图生视频、带音频),否则 ×1。"
+    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "字段存在/为 true 时套用的倍率(如图生视频、带音频),否则 ×1。",
+    "Empty Response Billing": "空回计费策略",
+    "Channel-level setting overrides the global channel-type policy": "渠道级设置会覆盖全局渠道类型策略",
+    "Inherit global setting": "继承全局设置",
+    "Do not bill empty responses": "空回不计费",
+    "Global Empty Response Billing": "全局空回计费",
+    "Channels without an explicit setting inherit this policy. Explicit channel settings still have the highest priority.": "未显式设置的渠道会继承此策略。渠道上的显式设置仍具有最高优先级。",
+    "Channel types to bill": "需要计费的渠道类型",
+    "Select channel types...": "选择渠道类型...",
+    "Selected channel types will bill upstream empty responses by default instead of auto-refunding.": "选中的渠道类型默认会对上游空回计费，而不是自动退款。"
   }
 }

@@ -1,13 +1,22 @@
 package common
 
-import "github.com/QuantumNous/new-api/dto"
+import (
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/setting/model_setting"
+)
 
 const EmptyResponseUsageSource = "empty_response_billing"
 
 func ShouldBillEmptyResponse(info *RelayInfo) bool {
-	return info != nil &&
-		info.ChannelMeta != nil &&
-		info.ChannelOtherSettings.EmptyResponseBillingEnabled
+	if info == nil || info.ChannelMeta == nil {
+		return false
+	}
+	if info.ChannelOtherSettings.EmptyResponseBillingEnabled != nil {
+		return *info.ChannelOtherSettings.EmptyResponseBillingEnabled
+	}
+	return model_setting.GetGlobalSettings().
+		EmptyResponseBillingPolicy.
+		IsChannelTypeEnabled(info.ChannelType)
 }
 
 func EnsureEmptyResponseBillableUsage(info *RelayInfo, usage *dto.Usage) *dto.Usage {

@@ -36,6 +36,29 @@ function formatJsonForEditor(value: string, fallback: string) {
   }
 }
 
+function parseEmptyResponseBillingChannelTypes(value: string) {
+  const raw = (value ?? '').toString().trim()
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    const channelTypes = parsed?.channel_types
+    if (
+      !channelTypes ||
+      typeof channelTypes !== 'object' ||
+      Array.isArray(channelTypes)
+    ) {
+      return []
+    }
+    return Object.entries(channelTypes)
+      .filter(([, enabled]) => enabled === true)
+      .map(([type]) => type)
+      .filter((type) => Number.isInteger(Number(type)) && Number(type) > 0)
+      .sort((a, b) => Number(a) - Number(b))
+  } catch {
+    return []
+  }
+}
+
 const MODELS_SECTIONS = [
   {
     id: 'global',
@@ -54,6 +77,10 @@ const MODELS_SECTIONS = [
               settings['global.chat_completions_to_responses_policy'],
               '{}'
             ),
+            empty_response_billing_channel_types:
+              parseEmptyResponseBillingChannelTypes(
+                settings['global.empty_response_billing_policy']
+              ),
           },
           general_setting: {
             ping_interval_enabled:

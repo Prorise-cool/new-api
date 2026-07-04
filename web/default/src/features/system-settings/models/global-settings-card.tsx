@@ -37,6 +37,8 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { MultiSelect } from '@/components/multi-select'
+import { CHANNEL_TYPE_OPTIONS } from '@/features/channels/constants'
 import { StatusBadge } from '@/components/status-badge'
 import {
   SettingsForm,
@@ -90,6 +92,7 @@ const schema = z.object({
     pass_through_request_enabled: z.boolean(),
     thinking_model_blacklist: jsonString,
     chat_completions_to_responses_policy: jsonString,
+    empty_response_billing_channel_types: z.array(z.string()),
   }),
   general_setting: z.object({
     ping_interval_enabled: z.boolean(),
@@ -104,8 +107,25 @@ type FlatGlobalModelSettings = {
   'global.pass_through_request_enabled': boolean
   'global.thinking_model_blacklist': string
   'global.chat_completions_to_responses_policy': string
+  'global.empty_response_billing_policy': string
   'general_setting.ping_interval_enabled': boolean
   'general_setting.ping_interval_seconds': number
+}
+
+function buildEmptyResponseBillingPolicy(channelTypes: string[]) {
+  const normalizedTypes = [
+    ...new Set(
+      channelTypes
+        .map((type) => Number(type))
+        .filter((type) => Number.isInteger(type) && type > 0)
+    ),
+  ].sort((a, b) => a - b)
+
+  const enabledChannelTypes: Record<string, boolean> = {}
+  for (const channelType of normalizedTypes) {
+    enabledChannelTypes[String(channelType)] = true
+  }
+  return JSON.stringify({ channel_types: enabledChannelTypes })
 }
 
 const flattenGlobalValues = (
@@ -120,6 +140,9 @@ const flattenGlobalValues = (
   'global.chat_completions_to_responses_policy': normalizeJsonText(
     values.global.chat_completions_to_responses_policy,
     '{}'
+  ),
+  'global.empty_response_billing_policy': buildEmptyResponseBillingPolicy(
+    values.global.empty_response_billing_channel_types
   ),
   'general_setting.ping_interval_enabled':
     values.general_setting.ping_interval_enabled,
@@ -139,6 +162,10 @@ type GlobalSettingsCardProps = {
 export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const channelTypeOptions = CHANNEL_TYPE_OPTIONS.map((option) => ({
+    value: String(option.value),
+    label: t(option.label),
+  }))
 
   const form = useForm<
     GlobalModelSettingsFormInput,
@@ -259,6 +286,46 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
               </FormItem>
             )}
           />
+
+          <Separator />
+
+          <div className='space-y-4'>
+            <div className='flex flex-col gap-1'>
+              <h3 className='text-base font-semibold'>
+                {t('Global Empty Response Billing')}
+              </h3>
+              <p className='text-muted-foreground text-sm'>
+                {t(
+                  'Channels without an explicit setting inherit this policy. Explicit channel settings still have the highest priority.'
+                )}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name='global.empty_response_billing_channel_types'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Channel types to bill')}</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={channelTypeOptions}
+                      selected={field.value ?? []}
+                      onChange={field.onChange}
+                      placeholder={t('Select channel types...')}
+                      maxVisibleChips={8}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Selected channel types will bill upstream empty responses by default instead of auto-refunding.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <Separator />
 

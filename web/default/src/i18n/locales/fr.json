@@ -4906,6 +4906,15 @@
     "How to turn the value into a number. long_edge: longest side of size. megapixels: width*height. number/seconds: parse directly.": "How to turn the value into a number. long_edge: longest side of size. megapixels: width*height. number/seconds: parse directly.",
     "Each bracket: the derived value <= up_to gets that multiplier. Set up_to = 0 for the no-upper-bound catch-all (put it last).": "Each bracket: the derived value <= up_to gets that multiplier. Set up_to = 0 for the no-upper-bound catch-all (put it last).",
     "Map each parameter value to a multiplier, e.g. standard -> 1, hd -> 2. Values not listed are not surcharged (x1).": "Map each parameter value to a multiplier, e.g. standard -> 1, hd -> 2. Values not listed are not surcharged (x1).",
-    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1."
+    "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.": "Multiplier applied when the field is present / true (e.g. image-to-video, with-audio). Otherwise x1.",
+    "Empty Response Billing": "Facturation des réponses vides",
+    "Channel-level setting overrides the global channel-type policy": "Le réglage au niveau du canal remplace la politique globale par type de canal",
+    "Inherit global setting": "Hériter du réglage global",
+    "Do not bill empty responses": "Ne pas facturer les réponses vides",
+    "Global Empty Response Billing": "Facturation globale des réponses vides",
+    "Channels without an explicit setting inherit this policy. Explicit channel settings still have the highest priority.": "Les canaux sans réglage explicite héritent de cette politique. Les réglages explicites des canaux gardent la priorité la plus élevée.",
+    "Channel types to bill": "Types de canaux à facturer",
+    "Select channel types...": "Sélectionner des types de canaux...",
+    "Selected channel types will bill upstream empty responses by default instead of auto-refunding.": "Les types de canaux sélectionnés factureront par défaut les réponses vides en amont au lieu de les rembourser automatiquement."
   }
 }
