@@ -143,7 +143,8 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	})
 
-	if info.ReceivedResponseCount == 0 {
+	emptyResponse := info.ReceivedResponseCount == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -185,6 +186,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	if !containStreamUsage {
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
+		if emptyResponse {
+			usage = relaycommon.EnsureEmptyResponseBillableUsage(info, usage)
+		}
 	}
 
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
@@ -228,7 +232,8 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
-	if len(simpleResponse.Choices) == 0 && simpleResponse.Usage.CompletionTokens == 0 {
+	emptyResponse := len(simpleResponse.Choices) == 0 && simpleResponse.Usage.CompletionTokens == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -262,6 +267,10 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 			CompletionTokens: completionTokens,
 			TotalTokens:      info.GetEstimatePromptTokens() + completionTokens,
 		}
+		usageModified = true
+	}
+	if emptyResponse {
+		relaycommon.EnsureEmptyResponseBillableUsage(info, &simpleResponse.Usage)
 		usageModified = true
 	}
 

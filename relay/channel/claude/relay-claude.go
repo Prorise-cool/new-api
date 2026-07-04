@@ -891,12 +891,16 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 
 	// 空回不计费：上游 HTTP 200 但流中无任何内容（无文本、无思考、无工具调用），
 	// 输出 token 为 0。返回 500 触发 Relay 层自动退还预扣费。
-	if claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() == 0 {
+	emptyResponse := claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
 			types.ErrOptionWithStatusCode(http.StatusInternalServerError),
 		)
+	}
+	if emptyResponse {
+		claudeInfo.Usage = relaycommon.EnsureEmptyResponseBillableUsage(info, claudeInfo.Usage)
 	}
 
 	HandleStreamFinalResponse(c, info, claudeInfo)
@@ -967,12 +971,16 @@ func ClaudeHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayI
 		return nil, handleErr
 	}
 
-	if claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() == 0 {
+	emptyResponse := claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
 			types.ErrOptionWithStatusCode(http.StatusInternalServerError),
 		)
+	}
+	if emptyResponse {
+		claudeInfo.Usage = relaycommon.EnsureEmptyResponseBillableUsage(info, claudeInfo.Usage)
 	}
 
 	return claudeInfo.Usage, nil

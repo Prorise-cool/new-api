@@ -40,7 +40,8 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	}
 
 	var imageResp dto.ImageResponse
-	if common.Unmarshal(responseBody, &imageResp) == nil && len(imageResp.Data) == 0 {
+	emptyResponse := common.Unmarshal(responseBody, &imageResp) == nil && len(imageResp.Data) == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -52,6 +53,9 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	normalizeOpenAIUsage(&usageResp.Usage)
+	if emptyResponse {
+		relaycommon.EnsureEmptyResponseBillableUsage(info, &usageResp.Usage)
+	}
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	return &usageResp.Usage, nil
 }
@@ -132,6 +136,9 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		helper.Done(c)
 	}
 
+	if info != nil && info.ReceivedResponseCount == 0 && relaycommon.ShouldBillEmptyResponse(info) {
+		usage = relaycommon.EnsureEmptyResponseBillableUsage(info, usage)
+	}
 	applyUsagePostProcessing(info, usage, lastStreamData)
 	return usage, nil
 }
@@ -220,7 +227,8 @@ func OpenaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
-	if len(imageResp.Data) == 0 {
+	emptyResponse := len(imageResp.Data) == 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -229,6 +237,9 @@ func OpenaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 	}
 
 	normalizeOpenAIUsage(&usageResp.Usage)
+	if emptyResponse {
+		relaycommon.EnsureEmptyResponseBillableUsage(info, &usageResp.Usage)
+	}
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 
 	helper.SetEventStreamHeaders(c)

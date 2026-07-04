@@ -42,8 +42,9 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 
 	// 空回不计费：上游无输出内容、无输出 token，且非图片生成调用。
 	// 返回 500 触发 Relay 层自动退还预扣费。
-	if len(responsesResponse.Output) == 0 && !c.GetBool("image_generation_call") &&
-		(responsesResponse.Usage == nil || responsesResponse.Usage.OutputTokens == 0) {
+	emptyResponse := len(responsesResponse.Output) == 0 && !c.GetBool("image_generation_call") &&
+		(responsesResponse.Usage == nil || responsesResponse.Usage.OutputTokens == 0)
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -63,6 +64,9 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		if responsesResponse.Usage.InputTokensDetails != nil {
 			usage.PromptTokensDetails.CachedTokens = responsesResponse.Usage.InputTokensDetails.CachedTokens
 		}
+	}
+	if emptyResponse {
+		usage = *relaycommon.EnsureEmptyResponseBillableUsage(info, &usage)
 	}
 	if info == nil || info.ResponsesUsageInfo == nil || info.ResponsesUsageInfo.BuiltInTools == nil {
 		return &usage, nil
@@ -153,7 +157,8 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	// 空回不计费：上游无输出 token、无输出文本，且非图片生成调用。
 	// 返回 500 触发 Relay 层自动退还预扣费。
-	if usage.CompletionTokens == 0 && responseTextBuilder.Len() == 0 && !c.GetBool("image_generation_call") {
+	emptyResponse := usage.CompletionTokens == 0 && responseTextBuilder.Len() == 0 && !c.GetBool("image_generation_call")
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -163,6 +168,9 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	if usage.PromptTokens == 0 && usage.CompletionTokens != 0 {
 		usage.PromptTokens = info.GetEstimatePromptTokens()
+	}
+	if emptyResponse {
+		usage = relaycommon.EnsureEmptyResponseBillableUsage(info, usage)
 	}
 
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens

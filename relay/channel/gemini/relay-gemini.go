@@ -1387,7 +1387,8 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 
 	// 空回不计费：上游流中无任何实际内容（无文本/图片/函数调用/代码执行）
 	// 且无输出 token。返回 500 触发 Relay 层自动退还预扣费。
-	if !hasContent && imageCount == 0 && usage.CompletionTokens <= 0 {
+	emptyResponse := !hasContent && imageCount == 0 && usage.CompletionTokens <= 0
+	if emptyResponse && !relaycommon.ShouldBillEmptyResponse(info) {
 		return nil, types.NewError(
 			fmt.Errorf("空回不计费，本次已自动免费"),
 			types.ErrorCodeBadResponseBody,
@@ -1402,11 +1403,16 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	}
 
 	if usage.CompletionTokens <= 0 {
-		if info.ReceivedResponseCount > 0 {
+		if emptyResponse && usage.PromptTokens > 0 {
+			usage.TotalTokens = usage.PromptTokens
+		} else if info.ReceivedResponseCount > 0 {
 			usage = service.ResponseText2Usage(c, responseText.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		} else {
 			usage = &dto.Usage{}
 		}
+	}
+	if emptyResponse {
+		usage = relaycommon.EnsureEmptyResponseBillableUsage(info, usage)
 	}
 
 	return usage, nil
