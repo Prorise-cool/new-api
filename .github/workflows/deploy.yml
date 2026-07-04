@@ -1,6 +1,6 @@
 name: Deploy (prod)
 
-# push main -> 构建 ghcr 镜像并自动滚动部署到 deploy/nodes.json 里的全部 new-api 节点。
+# push main -> 构建 ghcr 镜像并自动部署到 deploy/nodes.json 里的生产 new-api 节点。
 # 手动 workflow_dispatch 填 image_tag -> 跳过构建,直接部署该 tag(= 一键回滚)。
 on:
   push:

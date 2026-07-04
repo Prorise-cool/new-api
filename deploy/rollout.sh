@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# new-api 滚动部署脚本(清单驱动)
-# 读取 deploy/nodes.json,按 role(master 先于 slave)逐台滚动更新:
+# new-api 部署脚本(清单驱动)
+# 读取 deploy/nodes.json,按 role(master 先于 slave)逐台更新:
 #   ghcr 登录(幂等) -> docker compose pull -> up -d -> 双因子健康门控
 #   -> 任一节点失败即停并回滚该节点(坏版本不会铺满全网)。
 #
