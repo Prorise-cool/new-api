@@ -3235,9 +3235,10 @@ export function ChannelMutateDrawer({
                                         )}
                                       </span>
                                     )}
-                                  </FormDescription>
-                                </div>
-                                <div className='flex flex-wrap gap-2'>
+                                  </>
+                                )}
+                              </div>
+                              <div className='flex flex-wrap gap-2'>
                                   <Button
                                     type='button'
                                     variant='outline'
