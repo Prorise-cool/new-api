@@ -28,12 +28,14 @@ import {
 // Number Formatting
 // ============================================================================
 
+import { toIntlLocale } from './currency'
+
 export function formatNumber(
   value: number | null | undefined,
   locales?: Intl.LocalesArgument
 ): string {
   if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(
+  return Intl.NumberFormat(toIntlLocale(locales), { maximumFractionDigits: 2 }).format(
     value as number
   )
 }
@@ -43,7 +45,7 @@ export function formatCompactNumber(
   locales?: Intl.LocalesArgument
 ): string {
   if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(locales, {
+  return Intl.NumberFormat(toIntlLocale(locales), {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value as number)
@@ -164,7 +166,7 @@ export function formatTimestampRelative(
   const ms = unit === 'seconds' ? timestamp * 1000 : timestamp
   const diffSeconds = Math.round((ms - Date.now()) / 1000)
   const absSeconds = Math.abs(diffSeconds)
-  const formatter = new Intl.RelativeTimeFormat(locales, {
+  const formatter = new Intl.RelativeTimeFormat(toIntlLocale(locales), {
     numeric: 'always',
   })
 

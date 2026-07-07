@@ -105,6 +105,15 @@ export interface CurrencyFormatOptions {
   locale?: Intl.LocalesArgument | undefined
 }
 
+// i18next uses "zhCN"/"zhTW" internally but Intl APIs require BCP 47 tags.
+const I18N_TO_BCP47: Record<string, string> = { zhCN: 'zh-CN', zhTW: 'zh-TW' }
+export function toIntlLocale(
+  locale: Intl.LocalesArgument | undefined
+): Intl.LocalesArgument | undefined {
+  if (typeof locale !== 'string') return locale
+  return I18N_TO_BCP47[locale] ?? locale
+}
+
 type ResolvedCurrencyFormatOptions = Omit<
   Required<CurrencyFormatOptions>,
   'locale'
@@ -240,7 +249,7 @@ function mergeOptions(
       options.minimumNonZero ?? DEFAULT_FORMAT_OPTIONS.minimumNonZero,
     compact: options.compact ?? DEFAULT_FORMAT_OPTIONS.compact,
     showSymbol: options.showSymbol ?? DEFAULT_FORMAT_OPTIONS.showSymbol,
-    locale: options.locale ?? DEFAULT_FORMAT_OPTIONS.locale,
+    locale: toIntlLocale(options.locale) ?? DEFAULT_FORMAT_OPTIONS.locale,
   }
 }
 
