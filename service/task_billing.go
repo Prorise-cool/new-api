@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,9 +24,9 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	if common.StringsContains(constant.TaskPricePatches, info.OriginModelName) {
 		logContent = fmt.Sprintf("%s，按次计费", logContent)
 	} else {
-		if len(info.PriceData.OtherRatios) > 0 {
+		if otherRatios := info.PriceData.OtherRatios(); len(otherRatios) > 0 {
 			var contents []string
-			for key, ra := range info.PriceData.OtherRatios {
+			for key, ra := range otherRatios {
 				if 1.0 != ra {
 					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
 				}
@@ -51,7 +52,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
 	// 全量生效倍率结构化记账(原 logContent 文本仅人读,这里补机器可读版本供前端渲染)。
-	if r := collectBillingRatios(info.PriceData.OtherRatios); len(r) > 0 {
+	if r := collectBillingRatios(info.PriceData.OtherRatios()); len(r) > 0 {
 		other["other_ratios"] = r
 	}
 	attachQuotaSaturation(c, info, other)
@@ -130,9 +131,11 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 			other["model_ratio"] = bc.ModelRatio
 		}
 		other["group_ratio"] = bc.GroupRatio
-		// 全量生效倍率收进嵌套键 other_ratios,供前端枚举渲染收据(替代旧的扁平 dump)。
-		if r := collectBillingRatios(bc.OtherRatios); len(r) > 0 {
-			other["other_ratios"] = r
+		// 全量生效倍率收进嵌套键 other_ratios，供前端枚举渲染收据（替代旧的扁平 dump）。
+		if priceData := taskBillingContextPriceData(bc); priceData != nil {
+			if r := collectBillingRatios(priceData.OtherRatios()); len(r) > 0 {
+				other["other_ratios"] = r
+			}
 		}
 	}
 	props := task.Properties
@@ -141,6 +144,17 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 		other["upstream_model_name"] = props.UpstreamModelName
 	}
 	return other
+}
+
+func taskBillingContextPriceData(bc *model.TaskBillingContext) *types.PriceData {
+	if bc == nil || len(bc.OtherRatios) == 0 {
+		return nil
+	}
+	priceData := &types.PriceData{}
+	if !priceData.ReplaceOtherRatios(bc.OtherRatios) {
+		return nil
+	}
+	return priceData
 }
 
 // taskModelName 从 BillingContext 或 Properties 中获取模型名称。
@@ -297,12 +311,8 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	// 计算 OtherRatios 乘积（视频折扣、时长等）
 	otherMultiplier := 1.0
-	if bc := task.PrivateData.BillingContext; bc != nil {
-		for _, r := range bc.OtherRatios {
-			if r != 1.0 && r > 0 {
-				otherMultiplier *= r
-			}
-		}
+	if priceData := taskBillingContextPriceData(task.PrivateData.BillingContext); priceData != nil {
+		otherMultiplier = priceData.OtherRatioMultiplier()
 	}
 
 	// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio * otherMultiplier（饱和转换，防止溢出成负数）

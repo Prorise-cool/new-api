@@ -296,12 +296,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		quotaCalculateDecimal := promptQuota.Add(completionQuota).Mul(ratio)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(summary.ToolCallSurchargeQuota)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(audioInputQuota)
-
-		if len(relayInfo.PriceData.OtherRatios) > 0 {
-			for _, otherRatio := range relayInfo.PriceData.OtherRatios {
-				quotaCalculateDecimal = quotaCalculateDecimal.Mul(decimal.NewFromFloat(otherRatio))
-			}
-		}
+		quotaCalculateDecimal = relayInfo.PriceData.ApplyOtherRatiosToDecimal(quotaCalculateDecimal)
 
 		if !ratio.IsZero() && quotaCalculateDecimal.LessThanOrEqual(decimal.Zero) {
 			quotaCalculateDecimal = decimal.NewFromInt(1)
@@ -313,11 +308,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		quotaCalculateDecimal := dModelPrice.Mul(dQuotaPerUnit).Mul(dGroupRatio)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(summary.ToolCallSurchargeQuota)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(audioInputQuota)
-		if len(relayInfo.PriceData.OtherRatios) > 0 {
-			for _, otherRatio := range relayInfo.PriceData.OtherRatios {
-				quotaCalculateDecimal = quotaCalculateDecimal.Mul(decimal.NewFromFloat(otherRatio))
-			}
-		}
+		quotaCalculateDecimal = relayInfo.PriceData.ApplyOtherRatiosToDecimal(quotaCalculateDecimal)
 		quota, clamp := common.QuotaFromDecimalChecked(quotaCalculateDecimal)
 		summary.Quota = quota
 		noteQuotaClamp(relayInfo, clamp)
@@ -480,7 +471,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 	// 计费倍率快照:记录所有生效倍率(SKU 参数倍率 + 适配器倍率),供收据透明化。
 	// 文本/图片路径无 AdjustBillingOnSubmit,此处 OtherRatios 已是最终实扣值。
-	if r := collectBillingRatios(relayInfo.PriceData.OtherRatios); len(r) > 0 {
+	if r := collectBillingRatios(relayInfo.PriceData.OtherRatios()); len(r) > 0 {
 		other["other_ratios"] = r
 	}
 	if tieredBillingApplied {

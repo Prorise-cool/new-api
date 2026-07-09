@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"os"
 	"testing"
@@ -11,7 +12,9 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/glebarez/sqlite"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -137,6 +140,105 @@ func makeTask(userId, channelId, quota, tokenId int, billingSource string, subsc
 			},
 		},
 	}
+}
+
+func TestPriceDataOtherRatiosFilterAndSnapshot(t *testing.T) {
+	priceData := types.PriceData{}
+
+	priceData.AddOtherRatio("zero", 0)
+	priceData.AddOtherRatio("negative", -0.5)
+	priceData.AddOtherRatio("nan", math.NaN())
+	priceData.AddOtherRatio("inf", math.Inf(1))
+	priceData.AddOtherRatio("one", 1)
+	priceData.AddOtherRatio("positive", 2.5)
+
+	ratios := priceData.OtherRatios()
+	require.Len(t, ratios, 2)
+	assert.Equal(t, 1.0, ratios["one"])
+	assert.Equal(t, 2.5, ratios["positive"])
+	assert.True(t, priceData.HasOtherRatio("one"))
+	assert.False(t, priceData.HasOtherRatio("zero"))
+
+	ratios["positive"] = 99
+	ratios["new"] = 3
+	nextSnapshot := priceData.OtherRatios()
+	assert.Equal(t, 2.5, nextSnapshot["positive"])
+	assert.NotContains(t, nextSnapshot, "new")
+}
+
+func TestPriceDataReplaceAndApplyOtherRatios(t *testing.T) {
+	priceData := types.PriceData{}
+
+	replaced := priceData.ReplaceOtherRatios(map[string]float64{
+		"zero":     0,
+		"negative": -3,
+		"nan":      math.NaN(),
+		"inf":      math.Inf(1),
+		"one":      1,
+		"duration": 2,
+		"size":     1.5,
+	})
+
+	require.True(t, replaced)
+	assert.Equal(t, 3.0, priceData.OtherRatioMultiplier())
+	assert.Equal(t, 30.0, priceData.ApplyOtherRatiosToFloat(10))
+	assert.Equal(t, 10.0, priceData.RemoveOtherRatiosFromFloat(30))
+	assert.True(t, decimal.NewFromInt(30).Equal(priceData.ApplyOtherRatiosToDecimal(decimal.NewFromInt(10))))
+
+	replaced = priceData.ReplaceOtherRatios(map[string]float64{
+		"zero": 0,
+		"nan":  math.NaN(),
+	})
+
+	require.False(t, replaced)
+	assert.Nil(t, priceData.OtherRatios())
+	assert.Equal(t, 1.0, priceData.OtherRatioMultiplier())
+}
+
+func TestTaskBillingOtherFiltersHistoricalOtherRatios(t *testing.T) {
+	task := makeTask(1, 1, 100, 0, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.OtherRatios = map[string]float64{
+		"seconds":  2,
+		"identity": 1,
+		"zero":     0,
+		"negative": -1,
+		"nan":      math.NaN(),
+		"inf":      math.Inf(1),
+	}
+
+	other := taskBillingOther(task)
+
+	assert.NotContains(t, other, "seconds")
+	assert.NotContains(t, other, "identity")
+	ratios, ok := other["other_ratios"].(map[string]float64)
+	require.True(t, ok)
+	assert.Equal(t, map[string]float64{"seconds": 2}, ratios)
+	assert.NotContains(t, ratios, "zero")
+	assert.NotContains(t, ratios, "negative")
+	assert.NotContains(t, ratios, "nan")
+	assert.NotContains(t, ratios, "inf")
+}
+
+func TestTaskBillingContextPriceDataFiltersMultiplier(t *testing.T) {
+	priceData := taskBillingContextPriceData(&model.TaskBillingContext{
+		OtherRatios: map[string]float64{
+			"seconds":  2,
+			"size":     3,
+			"identity": 1,
+			"zero":     0,
+			"negative": -1,
+			"nan":      math.NaN(),
+			"inf":      math.Inf(1),
+		},
+	})
+
+	require.NotNil(t, priceData)
+	assert.Equal(t, 6.0, priceData.OtherRatioMultiplier())
+	assert.Equal(t, map[string]float64{
+		"seconds":  2,
+		"size":     3,
+		"identity": 1,
+	}, priceData.OtherRatios())
 }
 
 // ---------------------------------------------------------------------------
