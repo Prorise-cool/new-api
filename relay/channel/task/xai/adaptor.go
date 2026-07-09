@@ -119,13 +119,15 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 
 	req := relaycommon.TaskSubmitReq{
-		Prompt:   prompt,
-		Model:    modelName,
-		Mode:     stringField(requestMap, "mode"),
-		Image:    stringField(requestMap, "image"),
-		Images:   stringSliceField(requestMap, "images"),
-		Size:     stringField(requestMap, "size"),
-		Metadata: mapField(requestMap, "metadata"),
+		Prompt:      prompt,
+		Model:       modelName,
+		Mode:        stringField(requestMap, "mode"),
+		Image:       imageReferenceField(requestMap, "image"),
+		Images:      stringSliceField(requestMap, "images"),
+		Size:        stringField(requestMap, "size"),
+		Resolution:  stringField(requestMap, "resolution"),
+		AspectRatio: stringField(requestMap, "aspect_ratio"),
+		Metadata:    mapField(requestMap, "metadata"),
 	}
 	if hasDuration {
 		req.Duration = duration
@@ -429,6 +431,18 @@ func validateDuration(action string, field string, duration int) error {
 func stringField(requestMap map[string]any, key string) string {
 	value, _ := requestMap[key].(string)
 	return value
+}
+
+func imageReferenceField(requestMap map[string]any, key string) string {
+	switch value := requestMap[key].(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case map[string]any:
+		if url, ok := value["url"].(string); ok {
+			return strings.TrimSpace(url)
+		}
+	}
+	return ""
 }
 
 func stringSliceField(requestMap map[string]any, key string) []string {

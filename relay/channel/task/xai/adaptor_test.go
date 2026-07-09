@@ -28,7 +28,7 @@ func newTestContext(method, path, body string) (*gin.Context, *httptest.Response
 }
 
 func TestValidateRequestAndSetActionStoresGenerationRequest(t *testing.T) {
-	context, _ := newTestContext(http.MethodPost, "/v1/video/generations", `{"model":"grok-imagine-video","prompt":"ocean","duration":10}`)
+	context, _ := newTestContext(http.MethodPost, "/v1/video/generations", `{"model":"grok-imagine-video","prompt":"ocean","duration":10,"resolution":"720p","aspect_ratio":"16:9","image":{"url":"https://cdn.example/input.png"}}`)
 	info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
 	adaptor := &TaskAdaptor{}
 
@@ -41,6 +41,10 @@ func TestValidateRequestAndSetActionStoresGenerationRequest(t *testing.T) {
 	assert.Equal(t, "grok-imagine-video", req.Model)
 	assert.Equal(t, "ocean", req.Prompt)
 	assert.Equal(t, 10, req.Duration)
+	assert.Equal(t, "720p", req.Resolution)
+	assert.Equal(t, "16:9", req.AspectRatio)
+	assert.Equal(t, "https://cdn.example/input.png", req.Image)
+	assert.Equal(t, []string{"https://cdn.example/input.png"}, req.Images)
 }
 
 func TestValidateRequestAndSetActionRejectsInvalidDuration(t *testing.T) {

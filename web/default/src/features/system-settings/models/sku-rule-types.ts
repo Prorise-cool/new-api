@@ -54,10 +54,13 @@ export const DERIVE_OPTIONS = ['long_edge', 'megapixels', 'number', 'seconds']
 /** Common source parameter keys, offered as datalist suggestions. */
 export const SOURCE_SUGGESTIONS = [
   'size',
+  'resolution',
   'quality',
   'mode',
+  'aspect_ratio',
   'duration',
   'background',
+  'image',
   'input_reference',
   'metadata.fps',
   'metadata.audio',

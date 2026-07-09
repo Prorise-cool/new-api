@@ -320,8 +320,15 @@ func taskSkuRatios(c *gin.Context, info *relaycommon.RelayInfo, modelName string
 	}
 	params := map[string]any{
 		"size":            req.Size,
+		"resolution":      req.Resolution,
+		"aspect_ratio":    req.AspectRatio,
+		"image":           req.Image,
 		"mode":            req.Mode,
 		"input_reference": req.InputReference,
+	}
+	if req.Size == "" && req.Resolution != "" {
+		// 兼容既有按 size 配置的分辨率 SKU 规则。
+		params["size"] = req.Resolution
 	}
 	if req.Duration != 0 {
 		params["duration"] = float64(req.Duration)
@@ -329,8 +336,29 @@ func taskSkuRatios(c *gin.Context, info *relaycommon.RelayInfo, modelName string
 	if req.Seconds != "" {
 		params["seconds"] = req.Seconds
 	}
-	if len(req.Metadata) > 0 {
-		params["metadata"] = map[string]any(req.Metadata)
+	metadata := req.Metadata
+	if req.Metadata != nil {
+		metadataCopy := make(map[string]any, len(req.Metadata)+1)
+		for k, v := range req.Metadata {
+			metadataCopy[k] = v
+		}
+		metadata = metadataCopy
+	}
+	if req.Resolution == "" {
+		if metadataResolution, ok := metadata["resolution"]; ok {
+			params["resolution"] = metadataResolution
+		}
+	} else {
+		if metadata == nil {
+			metadata = make(map[string]any, 1)
+		}
+		if _, exists := metadata["resolution"]; !exists {
+			// 兼容既有按 metadata.resolution 配置的 SKU 规则,但不回写请求 metadata。
+			metadata["resolution"] = req.Resolution
+		}
+	}
+	if len(metadata) > 0 {
+		params["metadata"] = map[string]any(metadata)
 	}
 	return ratio_setting.GetSkuRatios(modelName, params)
 }
