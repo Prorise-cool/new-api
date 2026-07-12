@@ -115,7 +115,7 @@ const BILLING_SECTIONS = [
           rules: settings['sku_ratio_setting.rules'],
           maxTotalRatio: settings['sku_ratio_setting.max_total_ratio'],
         }}
-        visibleTabs={['models', 'tool-prices', 'sku-ratios', 'upstream-sync']}
+        visibleTabs={['models', 'unset-models', 'tool-prices', 'sku-ratios', 'upstream-sync']}
       />
     ),
   },

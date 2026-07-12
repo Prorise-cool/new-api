@@ -59,18 +59,24 @@ function formatJsonValidationError(
     )
   }
 
-  const parts = [
-    error.line && error.column
-      ? t('JSON is invalid at line {{line}}, column {{column}}.', {
-          line: error.line,
-          column: error.column,
-        })
-      : error.position !== undefined
-        ? t('JSON is invalid at position {{position}}.', {
-            position: error.position,
-          })
-        : t('JSON is invalid. Please check the syntax.'),
-  ]
+  let locationMessage: string
+  if (error.line && error.column) {
+    locationMessage = t(
+      'JSON is invalid at line {{line}}, column {{column}}.',
+      {
+        line: error.line,
+        column: error.column,
+      }
+    )
+  } else if (error.position !== undefined) {
+    locationMessage = t('JSON is invalid at position {{position}}.', {
+      position: error.position,
+    })
+  } else {
+    locationMessage = t('JSON is invalid. Please check the syntax.')
+  }
+
+  const parts = [locationMessage]
 
   if (error.missingCommaLine) {
     parts.push(
@@ -133,6 +139,7 @@ type ModelFormValues = z.infer<ReturnType<typeof createModelSchema>>
 type GroupFormValues = z.infer<ReturnType<typeof createGroupSchema>>
 type RatioTabId =
   | 'models'
+  | 'unset-models'
   | 'groups'
   | 'tool-prices'
   | 'sku-ratios'
@@ -400,6 +407,7 @@ export function RatioSettingsCard({
 
   const tabLabels: Record<RatioTabId, string> = {
     models: 'Model prices',
+    'unset-models': 'Unset price models',
     groups: 'Group ratios',
     'tool-prices': 'Tool prices',
     'sku-ratios': 'Parameter-based pricing',
@@ -416,7 +424,7 @@ export function RatioSettingsCard({
   const defaultTab = visibleTabs[0] ?? 'models'
 
   const renderTabContent = (tab: RatioTabId) => {
-    if (tab === 'models') {
+    if (tab === 'models' || tab === 'unset-models') {
       return (
         <ModelRatioForm
           form={modelForm}
@@ -425,6 +433,7 @@ export function RatioSettingsCard({
           onReset={handleResetRatios}
           isSaving={updateOption.isPending}
           isResetting={resetMutation.isPending}
+          variant={tab === 'unset-models' ? 'unset' : 'default'}
         />
       )
     }
@@ -484,14 +493,14 @@ export function RatioSettingsCard({
           {renderTabContent(defaultTab)}
         </SettingsSection>
       ) : (
-        <Tabs defaultValue={defaultTab} className='space-y-6'>
+        <Tabs defaultValue={defaultTab} className='h-full min-h-0 gap-6'>
           <SettingsPageTitleStatusPortal>
             {renderTabSwitcher()}
           </SettingsPageTitleStatusPortal>
 
-          <SettingsSection title={t(titleKey)}>
+          <SettingsSection title={t(titleKey)} className='min-h-0 flex-1'>
             {visibleTabs.map((tab) => (
-              <TabsContent key={tab} value={tab}>
+              <TabsContent key={tab} value={tab} className='min-h-0'>
                 {renderTabContent(tab)}
               </TabsContent>
             ))}
